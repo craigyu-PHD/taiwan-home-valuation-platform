@@ -1,4 +1,4 @@
-import { Calculator, CheckCircle2, ReceiptText, RotateCcw, ShieldAlert } from "lucide-react";
+import { Calculator, MapPin, ReceiptText, RotateCcw, ShieldAlert } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useEstimate } from "../context/EstimateContext";
 import { calculateLandValueTax, defaultLandValueTaxInput, type LandValueTaxInput } from "../services/landValueTax";
@@ -19,6 +19,13 @@ export const LandValueTaxPage = () => {
   );
   const result = useMemo(() => calculateLandValueTax(input), [input]);
   const update = (updates: Partial<LandValueTaxInput>) => setInput((current) => ({ ...current, ...updates }));
+  const resetInput = () =>
+    setInput(
+      defaultLandValueTaxInput(
+        valuation?.totalMedianWan,
+        propertyInput.ageYears ? new Date().getFullYear() - propertyInput.ageYears : undefined,
+      ),
+    );
 
   return (
     <div className="page land-tax-page">
@@ -26,8 +33,18 @@ export const LandValueTaxPage = () => {
         <span className="eyebrow">出售成本 / 賣方稅費</span>
         <h1>土地增值稅試算</h1>
         <p>
-          此功能由估價結果延伸，協助賣方概算出售時可能負擔的土地增值稅。實際應納稅額仍以地方稅稽徵機關核定為準。
+          地址由目前估價標的帶入，不能在稅費頁直接修改；若要換標的，請回地址估價、地圖估價或決策雷達更新。
+          其他試算欄位可自行調整，結果會即時更新。
         </p>
+      </section>
+
+      <section className="tax-subject-card">
+        <MapPin size={20} />
+        <div>
+          <span>估價標的</span>
+          <strong>{propertyInput.address}</strong>
+          <small>{[propertyInput.city, propertyInput.district, propertyInput.road].filter(Boolean).join(" / ")} · 地址鎖定，避免稅費試算與估價標的脫鉤。</small>
+        </div>
       </section>
 
       <section className="tax-mode-tabs">
@@ -37,48 +54,35 @@ export const LandValueTaxPage = () => {
 
       <section className="land-tax-layout">
         <div className="land-tax-form">
-          <article className="tax-form-card">
-            <h2>土地資料</h2>
-            <div className="form-grid">
-              <label>縣市<input value={propertyInput.city ?? ""} readOnly /></label>
-              <label>行政區<input value={propertyInput.district ?? ""} readOnly /></label>
-              <label className="wide-field">地址<input value={propertyInput.address} readOnly /></label>
-              <label>土地面積<input type="number" value={input.landAreaSqm || ""} onChange={(event) => update({ landAreaSqm: toNumber(event.target.value) })} /></label>
-              <label>持分分子<input type="number" value={input.shareNumerator || ""} onChange={(event) => update({ shareNumerator: toNumber(event.target.value) })} /></label>
-              <label>持分分母<input type="number" value={input.shareDenominator || ""} onChange={(event) => update({ shareDenominator: toNumber(event.target.value) })} /></label>
-              <label>土地類型<select value={input.isUrban ? "urban" : "rural"} onChange={(event) => update({ isUrban: event.target.value === "urban" })}><option value="urban">都市土地</option><option value="rural">非都市土地</option></select></label>
-            </div>
-          </article>
-
-          <article className="tax-form-card">
-            <h2>計算基礎</h2>
-            <div className="form-grid">
+          <article className="tax-form-card tax-simple-card">
+            <h2>快速試算欄位</h2>
+            <p>先填最關鍵的數字即可；不知道前次移轉現值時，系統會標示低信心概算。</p>
+            <div className="form-grid tax-simple-grid">
               <label>本次申報移轉現值<input type="number" value={input.currentLandValue || ""} onChange={(event) => update({ currentLandValue: toNumber(event.target.value) })} /></label>
               <label>前次移轉現值 / 原規定地價<input type="number" value={input.previousLandValue || ""} onChange={(event) => update({ previousLandValue: toNumber(event.target.value) })} /></label>
               <label>取得年份<input type="number" value={input.acquisitionYear ?? ""} onChange={(event) => update({ acquisitionYear: toNumber(event.target.value) || undefined })} /></label>
-              <label>物價指數調整值<input type="number" step="0.01" value={input.cpiFactor || ""} onChange={(event) => update({ cpiFactor: toNumber(event.target.value) })} /></label>
-            </div>
-          </article>
-
-          <article className="tax-form-card">
-            <h2>自用住宅優惠檢查</h2>
-            <div className="form-grid">
+              <label>土地面積（平方公尺）<input type="number" value={input.landAreaSqm || ""} onChange={(event) => update({ landAreaSqm: toNumber(event.target.value) })} /></label>
+              <label>持分分子<input type="number" value={input.shareNumerator || ""} onChange={(event) => update({ shareNumerator: toNumber(event.target.value) })} /></label>
+              <label>持分分母<input type="number" value={input.shareDenominator || ""} onChange={(event) => update({ shareDenominator: toNumber(event.target.value) })} /></label>
+              <label>土地類型<select value={input.isUrban ? "urban" : "rural"} onChange={(event) => update({ isUrban: event.target.value === "urban" })}><option value="urban">都市土地</option><option value="rural">非都市土地</option></select></label>
               <label>是否自用住宅<select value={input.selfUse} onChange={(event) => update({ selfUse: event.target.value as LandValueTaxInput["selfUse"] })}>{answerOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-              <label>出售前一年出租或營業<select value={input.rentedOrBusinessLastYear} onChange={(event) => update({ rentedOrBusinessLastYear: event.target.value as LandValueTaxInput["rentedOrBusinessLastYear"] })}>{answerOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
               <label>本人或親屬已設戶籍<select value={input.householdRegistered} onChange={(event) => update({ householdRegistered: event.target.value as LandValueTaxInput["householdRegistered"] })}>{answerOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+              <label>出售前一年出租或營業<select value={input.rentedOrBusinessLastYear} onChange={(event) => update({ rentedOrBusinessLastYear: event.target.value as LandValueTaxInput["rentedOrBusinessLastYear"] })}>{answerOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
               <label>曾用一生一次<select value={input.usedOnce} onChange={(event) => update({ usedOnce: event.target.value as LandValueTaxInput["usedOnce"] })}>{answerOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-              <label>另有房屋<select value={input.ownsOtherHouse} onChange={(event) => update({ ownsOtherHouse: event.target.value as LandValueTaxInput["ownsOtherHouse"] })}>{answerOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
             </div>
           </article>
 
           {mode === "advanced" && (
             <article className="tax-form-card">
               <h2>進階扣除與重購退稅</h2>
+              <p>懂稅務資料的人再填；一般使用者可先保留預設值。</p>
               <div className="form-grid">
+                <label>物價指數調整值<input type="number" step="0.01" value={input.cpiFactor || ""} onChange={(event) => update({ cpiFactor: toNumber(event.target.value) })} /></label>
                 <label>土地改良費用<input type="number" value={input.improvementCost || ""} onChange={(event) => update({ improvementCost: toNumber(event.target.value) })} /></label>
                 <label>工程受益費<input type="number" value={input.benefitFee || ""} onChange={(event) => update({ benefitFee: toNumber(event.target.value) })} /></label>
                 <label>土地重劃費用<input type="number" value={input.landReadjustmentCost || ""} onChange={(event) => update({ landReadjustmentCost: toNumber(event.target.value) })} /></label>
                 <label>抵繳金額<input type="number" value={input.extraLandTaxCredit || ""} onChange={(event) => update({ extraLandTaxCredit: toNumber(event.target.value) })} /></label>
+                <label>另有房屋<select value={input.ownsOtherHouse} onChange={(event) => update({ ownsOtherHouse: event.target.value as LandValueTaxInput["ownsOtherHouse"] })}>{answerOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
                 <label>檢查重購退稅<select value={input.checkRepurchase} onChange={(event) => update({ checkRepurchase: event.target.value as LandValueTaxInput["checkRepurchase"] })}>{answerOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
                 <label>新購土地地價<input type="number" value={input.newPurchaseLandValue || ""} onChange={(event) => update({ newPurchaseLandValue: toNumber(event.target.value) })} /></label>
               </div>
@@ -112,8 +116,8 @@ export const LandValueTaxPage = () => {
             <ul>{(result.warnings.length ? result.warnings : ["目前必要欄位大致完整，但仍須以地方稅務機關核定為準。"]).map((item) => <li key={item}>{item}</li>)}</ul>
           </article>
           <div className="tax-sticky-actions">
-            <button type="button" className="secondary-button" onClick={() => setInput(defaultLandValueTaxInput(valuation?.totalMedianWan))}><RotateCcw size={17} />重新填寫</button>
-            <button type="button" className="primary-button"><Calculator size={17} />立即試算</button>
+            <button type="button" className="secondary-button" onClick={resetInput}><RotateCcw size={17} />重新填寫</button>
+            <button type="button" className="primary-button"><Calculator size={17} />已即時試算</button>
           </div>
         </aside>
       </section>

@@ -40,6 +40,7 @@ export const normalizeAddressText = (value: string) => {
     .trim()
     .toLowerCase()
     .replace(/[臺]/g, "台")
+    .replace(/國度花園/g, "國都花園")
     .replace(/[縣市]/g, (char) => char)
     .replace(/[，,。．.、\s-]/g, "")
     .replace(/([零〇一二兩三四五六七八九十百]+)(?=(段|巷|弄|號|樓|層|之|室|棟))/g, (match) => {

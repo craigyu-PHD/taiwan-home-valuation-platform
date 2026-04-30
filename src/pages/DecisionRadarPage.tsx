@@ -16,6 +16,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { useMemo, useState, type CSSProperties } from "react";
+import { AddressSearch } from "../components/AddressSearch";
 import { LandUseBadge } from "../components/LandUseBadge";
 import { ModeSwitch } from "../components/ModeSwitch";
 import { RentalSummary } from "../components/RentalSummary";
@@ -396,7 +397,10 @@ export const DecisionRadarPage = () => {
           <span className="eyebrow">第四分頁 / 決策雷達 / 租屋</span>
           <h1>同一標的，拆解租客與房東心中的租金</h1>
           <p>租屋模式會把土地用途、周邊機能、交通文教、租金投報與屋況風險轉成租客議租點與房東守價點。</p>
-          <ModeSwitch />
+          <div className="decision-control-row">
+            <ModeSwitch />
+            <AddressSearch compact buttonLabel="更新標的" onSelect={() => undefined} />
+          </div>
         </section>
         <section className="decision-target-grid">
           <article className="decision-radar-card">
@@ -500,7 +504,10 @@ export const DecisionRadarPage = () => {
           本頁會先鎖定目前輸入或地圖選定的標的，再把土地用途、周邊機能、建設題材、成交樣本與屋況風險，
           轉成買方與賣方各自的心理價格、溢價理由與議價策略。
         </p>
-        <ModeSwitch />
+        <div className="decision-control-row">
+          <ModeSwitch />
+          <AddressSearch compact buttonLabel="更新標的" onSelect={() => undefined} />
+        </div>
       </section>
 
       <section className="decision-target-grid">

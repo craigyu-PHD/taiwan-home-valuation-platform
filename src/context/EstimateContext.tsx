@@ -72,16 +72,24 @@ export const EstimateProvider = ({ children }: PropsWithChildren) => {
       setTransactionMode,
       setSelectedLocation: (candidate) => {
         setSelectedLocationState(candidate);
-        setPropertyInput((current) => ({
-          ...current,
-          address: candidate.label,
-          city: candidate.city,
-          district: candidate.district,
-          road: candidate.road,
-          lat: candidate.lat,
-          lng: candidate.lng,
-          locationConfidence: candidate.confidence,
-        }));
+        setPropertyInput((current) => {
+          const next = {
+            ...current,
+            communityName: candidate.label.includes("國都花園") || candidate.label.includes("國度花園")
+              ? "國都花園社區"
+              : undefined,
+            address: candidate.label,
+            city: candidate.city,
+            district: candidate.district,
+            road: candidate.road,
+            lat: candidate.lat,
+            lng: candidate.lng,
+            locationConfidence: candidate.confidence,
+          };
+          setValuation(estimateProperty(next));
+          setRentalValuation(estimateRental(next));
+          return next;
+        });
       },
       updatePropertyInput: (updates) => {
         setPropertyInput((current) => ({ ...current, ...updates }));

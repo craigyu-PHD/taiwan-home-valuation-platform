@@ -1,4 +1,4 @@
-import { Calculator, Database, MapPinned, ReceiptText } from "lucide-react";
+import { BarChart3, Calculator, Database, MapPinned, ReceiptText } from "lucide-react";
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { DisclaimerBox } from "../components/DisclaimerBox";
@@ -17,9 +17,6 @@ export const HomePage = () => {
   const { propertyInput, valuation, rentalValuation, transactionMode } = useEstimate();
   const [hasInlineResult, setHasInlineResult] = useState(false);
   const rentResult = rentalValuation ?? estimateRental(propertyInput);
-  const chartCases = valuation?.casesUsed.slice(0, 5) ?? [];
-  const maxUnit = Math.max(...chartCases.map((item) => item.unitPriceWan), 1);
-  const barColors = ["#14b8a6", "#2563eb", "#f59e0b", "#ef4444", "#8b5cf6"];
 
   return (
     <div className="page home-page">
@@ -59,87 +56,49 @@ export const HomePage = () => {
             </NavLink>
           </div>
         </div>
-        <aside className="hero-panel">
+        <aside className="hero-panel hero-panel-balanced">
           <div className="hero-panel-top">
             <span className="eyebrow">AI 即時判讀</span>
-            <h2>{transactionMode === "sale" ? "市場價格、賣方成本與買方決策一次串起來" : "租金區間、坪租與租客房東心理價同步判讀"}</h2>
-            <div className="home-tool-grid">
-              <NavLink to="/estimate/result" className="home-tool-card">
-                <Calculator size={18} />
-                <span>完整結果</span>
-              </NavLink>
-              <NavLink to="/land-value-tax" className="home-tool-card">
-                <ReceiptText size={18} />
-                <span>賣屋稅費</span>
-              </NavLink>
-              <NavLink to="/market" className="home-tool-card">
-                <MapPinned size={18} />
-                <span>區域行情</span>
-              </NavLink>
+            <h2>{transactionMode === "sale" ? "目前標的與估價狀態" : "目前標的與租金狀態"}</h2>
+            <div className="target-brief-card">
+              <span>目前標的</span>
+              <strong>{propertyInput.communityName || propertyInput.address}</strong>
+              <small>{[propertyInput.city, propertyInput.district, propertyInput.road].filter(Boolean).join(" / ")}</small>
             </div>
           </div>
-          <div className="mini-chart-card">
-            <div className="mini-chart-title">
-              <span>{transactionMode === "sale" ? "周邊成交單價分布" : "租金換算參考分布"}</span>
-              <strong>{transactionMode === "sale" ? valuation?.comparableCount ?? 0 : rentResult.comparableCount} 筆</strong>
+          <div className="hero-metrics-grid">
+            <div className="panel-stat">
+              <span>{transactionMode === "sale" ? "參考中位價" : "參考月租"}</span>
+              <strong>{transactionMode === "sale" ? formatWan(valuation?.totalMedianWan) : `${Math.round((rentResult.monthlyMedianTwd ?? 0) / 1000).toLocaleString("zh-TW")}k`}</strong>
             </div>
-            <div className="mini-chart">
-              {chartCases.map((item, index) => (
-                <div key={item.id} className="mini-bar-wrap">
-                  <span
-                    style={{
-                      height: `${Math.max(18, (item.unitPriceWan / maxUnit) * 100)}%`,
-                      background: `linear-gradient(180deg, ${barColors[index % barColors.length]}, #d8f3ef)`,
-                    }}
-                  />
-                  <small>{item.unitPriceWan.toFixed(0)}</small>
-                </div>
-              ))}
+            <div className="panel-stat muted">
+              <span>{transactionMode === "sale" ? "單價區間" : "坪租區間"}</span>
+              <strong>
+                {transactionMode === "sale"
+                  ? `${formatUnitWan(valuation?.unitLowWan)} - ${formatUnitWan(valuation?.unitHighWan)}`
+                  : `${rentResult.rentPerPingLowTwd ?? 0} - ${rentResult.rentPerPingHighTwd ?? 0} 元/坪`}
+              </strong>
             </div>
-            <small className="mini-chart-caption">每坪萬元，依相似度排序。</small>
+            <div className="confidence-strip">
+              <span>信心分數</span>
+              <strong>{transactionMode === "sale" ? valuation?.confidenceScore ?? 0 : rentResult.confidenceScore}/100</strong>
+            </div>
           </div>
-          <div className="panel-stat">
-            <span>{transactionMode === "sale" ? "示範中位價" : "參考月租"}</span>
-            <strong>{transactionMode === "sale" ? formatWan(valuation?.totalMedianWan) : `${Math.round((rentResult.monthlyMedianTwd ?? 0) / 1000).toLocaleString("zh-TW")}k`}</strong>
-          </div>
-          <div className="panel-stat muted">
-            <span>{transactionMode === "sale" ? "示範單價區間" : "推估坪租區間"}</span>
-            <strong>
-              {transactionMode === "sale"
-                ? `${formatUnitWan(valuation?.unitLowWan)} - ${formatUnitWan(valuation?.unitHighWan)}`
-                : `${rentResult.rentPerPingLowTwd ?? 0} - ${rentResult.rentPerPingHighTwd ?? 0} 元/坪`}
-            </strong>
-          </div>
-          <div className="confidence-strip">
-            <span>信心分數</span>
-            <strong>{transactionMode === "sale" ? valuation?.confidenceScore ?? 0 : rentResult.confidenceScore}/100</strong>
+          <div className="home-tool-grid">
+            <NavLink to="/estimate/result" className="home-tool-card">
+              <Calculator size={18} />
+              <span>完整結果</span>
+            </NavLink>
+            <NavLink to="/market" className="home-tool-card">
+              <BarChart3 size={18} />
+              <span>區域行情</span>
+            </NavLink>
+            <NavLink to="/land-value-tax" className="home-tool-card">
+              <ReceiptText size={18} />
+              <span>稅費試算</span>
+            </NavLink>
           </div>
         </aside>
-      </section>
-
-      <section className="home-quick-tools">
-        <div className="section-heading compact-heading">
-          <span className="eyebrow">常用工具</span>
-          <h2>估價、行情與出售成本分開查</h2>
-          <p>主流程維持簡潔，稅費屬於賣方出售成本，另外試算，不併入房屋市場價格。</p>
-        </div>
-        <div className="quick-tool-grid">
-          <NavLink to="/" className="quick-tool-card">
-            <Calculator size={20} />
-            <strong>房屋估價</strong>
-            <span>輸入地址與條件，查看合理價格區間。</span>
-          </NavLink>
-          <NavLink to="/market" className="quick-tool-card">
-            <MapPinned size={20} />
-            <strong>區域行情</strong>
-            <span>依行政區查看六類房屋分類行情。</span>
-          </NavLink>
-          <NavLink to="/land-value-tax" className="quick-tool-card tax">
-            <ReceiptText size={20} />
-            <strong>賣屋稅費試算</strong>
-            <span>延伸估算土地增值稅、自用住宅優惠與重購退稅。</span>
-          </NavLink>
-        </div>
       </section>
 
       {hasInlineResult && (valuation || rentalValuation) && (
@@ -164,18 +123,6 @@ export const HomePage = () => {
       )}
 
       <DisclaimerBox />
-
-      <section className="home-method-detail" id="method">
-        <div className="section-heading">
-          <span className="eyebrow">方法與免責聲明</span>
-          <h2>公開資料、區間估價與限制說明</h2>
-          <p>
-            系統以實價登錄成交資料、地理位置、建物類型、屋齡、坪數與樓層條件加權，
-            輸出價格區間與信心分數。結果僅供市場行情參考，不構成正式估價報告、
-            銀行核貸依據或成交價格保證。
-          </p>
-        </div>
-      </section>
     </div>
   );
 };

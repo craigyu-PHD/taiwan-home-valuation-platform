@@ -10,6 +10,7 @@ import { type PropsWithChildren } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { DEMO_DATA_NOTICE } from "../data/demoTransactions";
 import { useEstimate } from "../context/EstimateContext";
+import { useDeviceType } from "../hooks/useDeviceType";
 import { ModeSwitch } from "./ModeSwitch";
 import type { TransactionMode } from "../types";
 
@@ -24,13 +25,14 @@ const navItems = [
 export const AppShell = ({ children }: PropsWithChildren) => {
   const navigate = useNavigate();
   const { transactionMode, setTransactionMode } = useEstimate();
+  const deviceType = useDeviceType();
   const chooseMode = (mode: TransactionMode, to: string) => {
     setTransactionMode(mode);
     navigate(to);
   };
 
   return (
-    <div className={`app-shell mode-${transactionMode}`}>
+    <div className={`app-shell mode-${transactionMode} device-${deviceType}`}>
       <header className="site-header">
         <NavLink to="/" className="brand">
           <span className="brand-mark" aria-hidden="true">

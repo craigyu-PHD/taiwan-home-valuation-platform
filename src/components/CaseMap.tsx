@@ -24,14 +24,14 @@ const createCapybaraIcon = (isDragging: boolean, isLanding: boolean) => L.divIco
     <div class="capybara-marker" aria-hidden="true">
       <svg class="capybara-svg" viewBox="0 0 104 118" role="img" aria-label="可拖曳水豚定位圖標">
         <defs>
-          <linearGradient id="capyBody" x1="18" y1="14" x2="84" y2="88" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#E7B678"/>
-            <stop offset="0.46" stop-color="#B97845"/>
-            <stop offset="1" stop-color="#76472B"/>
+          <linearGradient id="capyBody" x1="25" y1="18" x2="78" y2="86" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#F0C284"/>
+            <stop offset="0.52" stop-color="#B97845"/>
+            <stop offset="1" stop-color="#744327"/>
           </linearGradient>
-          <linearGradient id="capyBelly" x1="26" y1="44" x2="70" y2="82" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#FFE2B8"/>
-            <stop offset="1" stop-color="#C98750"/>
+          <linearGradient id="capyMuzzle" x1="31" y1="48" x2="73" y2="75" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#FFE0B0"/>
+            <stop offset="1" stop-color="#D49358"/>
           </linearGradient>
           <linearGradient id="capyPin" x1="52" y1="80" x2="52" y2="116" gradientUnits="userSpaceOnUse">
             <stop stop-color="#1F6FEB"/>
@@ -42,27 +42,28 @@ const createCapybaraIcon = (isDragging: boolean, isLanding: boolean) => L.divIco
             <feDropShadow dx="0" dy="10" stdDeviation="7" flood-color="#182739" flood-opacity="0.24"/>
           </filter>
         </defs>
-        <ellipse class="capy-ground" cx="52" cy="106" rx="28" ry="6"/>
+        <ellipse class="capy-ground" cx="52" cy="106" rx="29" ry="6"/>
         <path class="capy-pin" d="M52 116 C45 103 38 95 38 85 C38 75 44 70 52 70 C60 70 66 75 66 85 C66 95 59 103 52 116Z"/>
-        <g class="capy-animal" filter="url(#capyShadow)">
-          <ellipse class="capy-body-svg" cx="58" cy="58" rx="31" ry="22"/>
-          <ellipse class="capy-belly-svg" cx="48" cy="63" rx="18" ry="14"/>
-          <path class="capy-fur-svg" d="M42 43 C50 49 66 47 78 57 M37 55 C49 61 63 61 78 68 M43 72 C53 77 65 76 75 73"/>
-          <ellipse class="capy-head-svg" cx="32" cy="45" rx="22" ry="27"/>
-          <circle class="capy-ear-svg ear-left" cx="22" cy="24" r="8"/>
-          <circle class="capy-ear-svg ear-right" cx="43" cy="24" r="8"/>
-          <ellipse class="capy-muzzle-svg" cx="23" cy="50" rx="13" ry="15"/>
-          <ellipse class="capy-nose-svg" cx="17" cy="47" rx="6" ry="5"/>
-          <circle class="capy-eye-svg" cx="40" cy="39" r="5.8"/>
-          <circle class="capy-eye-glint" cx="38" cy="37" r="1.8"/>
-          <path class="capy-mouth-svg" d="M25 58 C31 63 38 61 42 57"/>
-          <path class="capy-leg-svg leg-a" d="M49 76 C48 84 45 89 40 90"/>
-          <path class="capy-leg-svg leg-b" d="M70 75 C70 84 67 90 62 91"/>
-          <path class="capy-arm-svg" d="M34 60 C28 66 24 71 20 78"/>
-          <path class="capy-arm-svg arm-b" d="M45 62 C43 70 41 75 37 82"/>
+        <g class="capy-animal capy-cute" filter="url(#capyShadow)">
+          <circle class="capy-ear-svg ear-left" cx="31" cy="27" r="10"/>
+          <circle class="capy-ear-svg ear-right" cx="73" cy="27" r="10"/>
+          <ellipse class="capy-body-svg" cx="52" cy="55" rx="35" ry="34"/>
+          <path class="capy-cheek-svg" d="M25 55 C27 75 38 88 52 88 C66 88 77 75 79 55 C75 66 66 73 52 73 C38 73 29 66 25 55Z"/>
+          <ellipse class="capy-muzzle-svg" cx="52" cy="61" rx="23" ry="16"/>
+          <ellipse class="capy-nose-svg" cx="52" cy="55" rx="12" ry="8"/>
+          <circle class="capy-nostril" cx="47" cy="54" r="2"/>
+          <circle class="capy-nostril" cx="57" cy="54" r="2"/>
+          <circle class="capy-eye-svg eye-left" cx="38" cy="45" r="6"/>
+          <circle class="capy-eye-svg eye-right" cx="66" cy="45" r="6"/>
+          <circle class="capy-eye-glint" cx="36" cy="43" r="1.8"/>
+          <circle class="capy-eye-glint" cx="64" cy="43" r="1.8"/>
+          <path class="capy-mouth-svg" d="M43 66 C47 70 57 70 61 66"/>
+          <path class="capy-fur-svg" d="M35 32 C42 28 60 28 69 33 M30 43 C36 38 43 36 49 36 M55 36 C63 36 70 39 75 44"/>
+          <path class="capy-paw-svg paw-left" d="M33 78 C37 82 43 83 47 79"/>
+          <path class="capy-paw-svg paw-right" d="M57 79 C62 83 68 82 72 78"/>
         </g>
-        <path class="capy-motion motion-a" d="M13 33 C4 39 3 51 10 59"/>
-        <path class="capy-motion motion-b" d="M90 41 C99 48 99 61 91 69"/>
+        <path class="capy-motion motion-a" d="M15 38 C7 45 7 57 14 64"/>
+        <path class="capy-motion motion-b" d="M89 38 C97 45 97 57 90 64"/>
       </svg>
     </div>
   `,
