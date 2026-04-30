@@ -8,6 +8,16 @@ export const formatUnitWan = (value?: number) => {
   return `${value.toFixed(1)} 萬/坪`;
 };
 
+export const formatTwd = (value?: number) => {
+  if (value === undefined || Number.isNaN(value)) return "無法估算";
+  return `${Math.round(value).toLocaleString("zh-TW")} 元`;
+};
+
+export const formatRentPerPing = (value?: number) => {
+  if (value === undefined || Number.isNaN(value)) return "無法估算";
+  return `${Math.round(value).toLocaleString("zh-TW")} 元/坪`;
+};
+
 export const formatDistance = (meters?: number) => {
   if (meters === undefined) return "無資料";
   if (meters < 1000) return `${Math.round(meters)} m`;

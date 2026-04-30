@@ -3,15 +3,20 @@ import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { DisclaimerBox } from "../components/DisclaimerBox";
 import { LandUseBadge } from "../components/LandUseBadge";
+import { ModeSwitch } from "../components/ModeSwitch";
 import { PropertyEstimateForm } from "../components/PropertyEstimateForm";
+import { RentalReferenceList } from "../components/RentalReferenceList";
+import { RentalSummary } from "../components/RentalSummary";
 import { ResultSummary } from "../components/ResultSummary";
 import { TransactionList } from "../components/TransactionList";
 import { useEstimate } from "../context/EstimateContext";
+import { estimateRental } from "../services/rental";
 import { formatUnitWan, formatWan } from "../utils/format";
 
 export const HomePage = () => {
-  const { propertyInput, valuation } = useEstimate();
+  const { propertyInput, valuation, rentalValuation, transactionMode } = useEstimate();
   const [hasInlineResult, setHasInlineResult] = useState(false);
+  const rentResult = rentalValuation ?? estimateRental(propertyInput);
   const chartCases = valuation?.casesUsed.slice(0, 5) ?? [];
   const maxUnit = Math.max(...chartCases.map((item) => item.unitPriceWan), 1);
   const barColors = ["#14b8a6", "#2563eb", "#f59e0b", "#ef4444", "#8b5cf6"];
@@ -23,7 +28,7 @@ export const HomePage = () => {
           <Database size={18} />
           <strong>估價標準</strong>
         </div>
-        <p>以實價登錄與周邊可比成交為主，輸出價格區間；資料不足或特殊物件會降低信心，不硬給單點價格。</p>
+        <p>{transactionMode === "sale" ? "以實價登錄與周邊可比成交為主，輸出價格區間；資料不足或特殊物件會降低信心，不硬給單點價格。" : "租屋模式以周邊成交換算、區域投報假設與物件條件推估月租區間，並清楚標示租金模型限制。"}</p>
         <div className="standard-pills">
           <span>成交資料</span>
           <span>價格區間</span>
@@ -33,13 +38,19 @@ export const HomePage = () => {
 
       <section className="home-hero">
         <div className="hero-copy">
-          <span className="eyebrow">資料透明 / 估價中立 / 低信心敢拒估</span>
-          <h1>全台房屋即時估價平台</h1>
+          <span className="eyebrow">資料透明 / 估價中立 / 買賣租屋雙模式</span>
+          <h1>找知道AI估價平臺</h1>
           <p>
-            輸入臺灣任一地址或在地圖選點，系統會依公開實價登錄與周邊可比成交，
-            產生價格區間、信心分數、估價依據與限制說明。
+            {transactionMode === "sale"
+              ? "輸入臺灣任一地址或在地圖選點，系統會依公開實價登錄與周邊可比成交，產生價格區間、信心分數、估價依據與限制說明。"
+              : "切換到租屋模式後，系統會以同一筆地址推估合理月租、坪租、租金信心與租屋條件提醒。"}
           </p>
-          <PropertyEstimateForm stayOnPage onEstimated={() => setHasInlineResult(true)} />
+          <ModeSwitch />
+          <PropertyEstimateForm
+            stayOnPage
+            submitLabel={transactionMode === "sale" ? "產生估價" : "產生租金行情"}
+            onEstimated={() => setHasInlineResult(true)}
+          />
           <LandUseBadge lat={propertyInput.lat} lng={propertyInput.lng} compact />
           <div className="hero-actions">
             <NavLink className="secondary-button" to="/estimate/map">
@@ -51,8 +62,8 @@ export const HomePage = () => {
         <aside className="hero-panel">
           <div className="mini-chart-card">
             <div className="mini-chart-title">
-              <span>周邊成交單價分布</span>
-              <strong>{valuation?.comparableCount ?? 0} 筆</strong>
+              <span>{transactionMode === "sale" ? "周邊成交單價分布" : "租金換算參考分布"}</span>
+              <strong>{transactionMode === "sale" ? valuation?.comparableCount ?? 0 : rentResult.comparableCount} 筆</strong>
             </div>
             <div className="mini-chart">
               {chartCases.map((item, index) => (
@@ -70,31 +81,42 @@ export const HomePage = () => {
             <small className="mini-chart-caption">每坪萬元，依相似度排序。</small>
           </div>
           <div className="panel-stat">
-            <span>示範中位價</span>
-            <strong>{formatWan(valuation?.totalMedianWan)}</strong>
+            <span>{transactionMode === "sale" ? "示範中位價" : "參考月租"}</span>
+            <strong>{transactionMode === "sale" ? formatWan(valuation?.totalMedianWan) : `${Math.round((rentResult.monthlyMedianTwd ?? 0) / 1000).toLocaleString("zh-TW")}k`}</strong>
           </div>
           <div className="panel-stat muted">
-            <span>示範單價區間</span>
+            <span>{transactionMode === "sale" ? "示範單價區間" : "推估坪租區間"}</span>
             <strong>
-              {formatUnitWan(valuation?.unitLowWan)} - {formatUnitWan(valuation?.unitHighWan)}
+              {transactionMode === "sale"
+                ? `${formatUnitWan(valuation?.unitLowWan)} - ${formatUnitWan(valuation?.unitHighWan)}`
+                : `${rentResult.rentPerPingLowTwd ?? 0} - ${rentResult.rentPerPingHighTwd ?? 0} 元/坪`}
             </strong>
           </div>
           <div className="confidence-strip">
             <span>信心分數</span>
-            <strong>{valuation?.confidenceScore ?? 0}/100</strong>
+            <strong>{transactionMode === "sale" ? valuation?.confidenceScore ?? 0 : rentResult.confidenceScore}/100</strong>
           </div>
         </aside>
       </section>
 
-      {hasInlineResult && valuation && (
+      {hasInlineResult && (valuation || rentalValuation) && (
         <section className="home-inline-result">
           <div className="section-heading compact-heading">
             <span className="eyebrow">同頁估價結果</span>
-            <h2>地址估價已完成</h2>
+            <h2>{transactionMode === "sale" ? "地址估價已完成" : "租金行情已完成"}</h2>
             <p>下方結果依目前地址與進階條件即時計算，不需離開首頁。</p>
           </div>
-          <ResultSummary result={valuation} compact />
-          <TransactionList cases={valuation.casesUsed.slice(0, 5)} />
+          {transactionMode === "sale" && valuation ? (
+            <>
+              <ResultSummary result={valuation} compact />
+              <TransactionList cases={valuation.casesUsed.slice(0, 5)} />
+            </>
+          ) : (
+            <>
+              <RentalSummary result={rentResult} compact />
+              <RentalReferenceList cases={rentResult.referencesUsed.slice(0, 5)} />
+            </>
+          )}
         </section>
       )}
 

@@ -15,25 +15,18 @@ import {
 } from "react-leaflet";
 import type { LatLngTuple } from "../data/districtPolygons";
 import type { GeoJsonGeometry } from "../services/boundaries";
-import type { TransactionCase } from "../types";
-import { formatDistance, formatUnitWan, formatWan } from "../utils/format";
+import type { RentalReferenceCase, TransactionCase } from "../types";
+import { formatDistance, formatRentPerPing, formatTwd, formatUnitWan, formatWan } from "../utils/format";
 
 const createCapybaraIcon = (isDragging: boolean, isLanding: boolean) => L.divIcon({
   className: `capybara-marker-icon ${isDragging ? "is-dragging" : ""} ${isLanding ? "is-landing" : ""}`,
   html: `
     <div class="capybara-marker" aria-hidden="true">
       <span class="capybara-shadow"></span>
-      <span class="capybara-body"></span>
-      <span class="capybara-ear left"></span>
-      <span class="capybara-ear right"></span>
-      <span class="capybara-face"></span>
-      <span class="capybara-eye left"></span>
-      <span class="capybara-eye right"></span>
-      <span class="capybara-snout"></span>
-      <span class="capybara-cheek left"></span>
-      <span class="capybara-cheek right"></span>
-      <span class="capybara-paw front"></span>
-      <span class="capybara-paw back"></span>
+      <span class="capybara-photo"></span>
+      <span class="capybara-grab-ring"></span>
+      <span class="capybara-motion motion-a"></span>
+      <span class="capybara-motion motion-b"></span>
       <span class="capybara-pin"></span>
     </div>
   `,
@@ -80,7 +73,7 @@ const ClickHandler = ({ onPick }: { onPick?: (lat: number, lng: number) => void 
 
 interface CaseMapProps {
   center: [number, number];
-  cases: Array<TransactionCase & { distanceMeters?: number }>;
+  cases: Array<(TransactionCase & { distanceMeters?: number }) | RentalReferenceCase>;
   onPick?: (lat: number, lng: number) => void;
   highlightPolygon?: LatLngTuple[];
   highlightGeometry?: GeoJsonGeometry;
@@ -200,8 +193,17 @@ export const CaseMap = ({
               <div className="map-popup">
                 <strong>{item.communityName ?? item.road}</strong>
                 <span>{item.propertyType}</span>
-                <span>{formatUnitWan(item.unitPriceWan)}</span>
-                <span>{formatWan(item.totalPriceWan)}</span>
+                {"rentPerPingTwd" in item ? (
+                  <>
+                    <span>{formatRentPerPing(item.rentPerPingTwd)}</span>
+                    <span>{formatTwd(item.estimatedMonthlyRentTwd)}</span>
+                  </>
+                ) : (
+                  <>
+                    <span>{formatUnitWan(item.unitPriceWan)}</span>
+                    <span>{formatWan(item.totalPriceWan)}</span>
+                  </>
+                )}
                 {item.distanceMeters !== undefined && <small>{formatDistance(item.distanceMeters)}</small>}
               </div>
             </Popup>

@@ -4,6 +4,7 @@ import {
   FileText,
   Gauge,
   Handshake,
+  KeyRound,
   Landmark,
   Lightbulb,
   MapPinned,
@@ -19,15 +20,18 @@ import {
 } from "lucide-react";
 import { useMemo, type CSSProperties } from "react";
 import { LandUseBadge } from "../components/LandUseBadge";
+import { ModeSwitch } from "../components/ModeSwitch";
+import { RentalSummary } from "../components/RentalSummary";
 import { ResultSummary } from "../components/ResultSummary";
 import { useEstimate } from "../context/EstimateContext";
 import { useLandUseInfo } from "../hooks/useLandUseInfo";
 import { useLocationIntel } from "../hooks/useLocationIntel";
 import type { LandUseInfo } from "../services/landUse";
 import { getMajorDevelopmentSignal, type LocationIntel } from "../services/locationIntel";
+import { estimateRental } from "../services/rental";
 import { estimateProperty } from "../services/valuation";
 import type { PropertyInput, ValuationResult } from "../types";
-import { clamp, formatDistance, formatUnitWan, formatWan } from "../utils/format";
+import { clamp, formatDistance, formatRentPerPing, formatTwd, formatUnitWan, formatWan } from "../utils/format";
 
 type Effect = "利多" | "利少" | "中性";
 type SignalIcon = "land" | "school" | "transit" | "retail" | "green" | "market" | "risk" | "build";
@@ -202,8 +206,9 @@ const buildDecisionSignals = (
 };
 
 export const DecisionRadarPage = () => {
-  const { propertyInput, selectedLocation, valuation } = useEstimate();
+  const { propertyInput, selectedLocation, valuation, rentalValuation, transactionMode } = useEstimate();
   const result = valuation ?? estimateProperty(propertyInput);
+  const rentResult = rentalValuation ?? estimateRental(propertyInput);
   const { info: landUse, status: landUseStatus } = useLandUseInfo(propertyInput.lat, propertyInput.lng);
   const { intel, status: intelStatus } = useLocationIntel(propertyInput.lat, propertyInput.lng);
   const unitMedian = result.unitMedianWan ?? 0;
@@ -268,6 +273,90 @@ export const DecisionRadarPage = () => {
       );
     });
 
+  if (transactionMode === "rent") {
+    const tenantTarget = rentResult.monthlyMedianTwd ? rentResult.monthlyMedianTwd * (riskScore >= 55 ? 0.92 : 0.97) : undefined;
+    const landlordTarget = rentResult.monthlyMedianTwd ? rentResult.monthlyMedianTwd * (confidence >= 65 ? 1.08 : 1.03) : undefined;
+    return (
+      <div className="page decision-page">
+        <section className="section-heading">
+          <span className="eyebrow">第四分頁 / 決策雷達 / 租屋</span>
+          <h1>同一標的，拆解租客與房東心中的租金</h1>
+          <p>租屋模式會把土地用途、周邊機能、交通文教、租金投報與屋況風險轉成租客議租點與房東守價點。</p>
+          <ModeSwitch />
+        </section>
+        <section className="decision-target-grid">
+          <article className="decision-radar-card">
+            <div
+              className="radar-score"
+              style={{ "--score": `${riskScore * 3.6}deg` } as CSSProperties & Record<"--score", string>}
+            >
+              <div>
+                <span>租屋風險</span>
+                <strong>{pct(riskScore)}</strong>
+              </div>
+            </div>
+            <div>
+              <h2>{riskScore >= 65 ? "先查證租約條件" : riskScore >= 38 ? "可議租但需比對條件" : "可作為租金參考"}</h2>
+              <p>目前標的：<strong>{targetLabel}</strong>。租屋風險會納入月租區間、地段、生活機能、屋況與資料信心。</p>
+            </div>
+          </article>
+          <article className="target-intel-card">
+            <div className="decision-card-title">
+              <MapPinned size={20} />
+              <h2>標的與租屋條件</h2>
+            </div>
+            <LandUseBadge lat={propertyInput.lat} lng={propertyInput.lng} compact />
+            <div className="intel-pill-grid">
+              <span>文教 {intel?.schoolCount ?? (intelStatus === "loading" ? "..." : 0)}</span>
+              <span>交通 {intel?.transitCount ?? (intelStatus === "loading" ? "..." : 0)}</span>
+              <span>機能 {intel?.retailCount ?? (intelStatus === "loading" ? "..." : 0)}</span>
+              <span>綠地 {intel?.greenCount ?? (intelStatus === "loading" ? "..." : 0)}</span>
+            </div>
+          </article>
+        </section>
+        <RentalSummary result={rentResult} compact />
+        <section className="buyer-seller-board">
+          <article className="side-evaluation-card buyer">
+            <div className="side-card-head">
+              <KeyRound size={22} />
+              <div>
+                <span>Tenant View</span>
+                <h2>租客評估</h2>
+              </div>
+            </div>
+            <div className="mind-price">
+              <span>租客心中合理月租</span>
+              <strong>{formatTwd(tenantTarget)}</strong>
+              <small>坪租參考：{formatRentPerPing(rentResult.rentPerPingMedianTwd)}</small>
+            </div>
+            <ul className="decision-factor-list">
+              <li className="decision-factor-item"><div><span className="effect-badge up">議租點</span><strong>屋況與家具家電</strong></div><p>租客會把管理費、家具、家電、可開伙、寵物與修繕責任折回租金。</p></li>
+              <li className="decision-factor-item"><div><span className="effect-badge neutral">比價</span><strong>交通與生活機能</strong></div><p>機能越好越容易接受中位租金，但仍需比對實際刊登物件。</p></li>
+            </ul>
+          </article>
+          <article className="side-evaluation-card seller">
+            <div className="side-card-head">
+              <Handshake size={22} />
+              <div>
+                <span>Landlord View</span>
+                <h2>房東評估</h2>
+              </div>
+            </div>
+            <div className="mind-price">
+              <span>房東心中可守月租</span>
+              <strong>{formatTwd(landlordTarget)}</strong>
+              <small>推估年投報：{rentResult.grossYieldPct?.toFixed(2) ?? "0.00"}%</small>
+            </div>
+            <ul className="decision-factor-list">
+              <li className="decision-factor-item"><div><span className="effect-badge up">守價點</span><strong>地段與稀缺性</strong></div><p>交通、文教、商圈與屋況完整時，房東可主張較高租金。</p></li>
+              <li className="decision-factor-item"><div><span className="effect-badge down">折價點</span><strong>空置與租期風險</strong></div><p>若空置期拉長或條件限制太多，房東應降低租金或調整押金條件。</p></li>
+            </ul>
+          </article>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="page decision-page">
       <section className="section-heading">
@@ -277,6 +366,7 @@ export const DecisionRadarPage = () => {
           本頁會先鎖定目前輸入或地圖選定的標的，再把土地用途、周邊機能、建設題材、成交樣本與屋況風險，
           轉成買方與賣方各自的心理價格、溢價理由與議價策略。
         </p>
+        <ModeSwitch />
       </section>
 
       <section className="decision-target-grid">

@@ -1,4 +1,4 @@
-import { Landmark, MapPinned } from "lucide-react";
+import { Landmark, MapPinned, MapPinnedIcon } from "lucide-react";
 import { useLandUseInfo } from "../hooks/useLandUseInfo";
 
 interface LandUseBadgeProps {
@@ -11,13 +11,18 @@ interface LandUseBadgeProps {
 export const LandUseBadge = ({ lat, lng, compact = false, className }: LandUseBadgeProps) => {
   const { info, status } = useLandUseInfo(lat, lng);
   const hasCoordinates = typeof lat === "number" && typeof lng === "number";
-  const label = info
+  const landUseLabel = info
     ? [info.primaryName, info.secondaryName, info.detailName].filter(Boolean).join(" / ")
     : status === "loading"
       ? "正在查詢最新公開圖資..."
       : hasCoordinates
         ? "此座標暫無可用土地用途別"
         : "尚未取得精準座標";
+  const sectionLabel = info?.sectionName
+    ? `${info.cityName ?? ""}${info.townName ?? ""} ${info.sectionName}${info.sectionCode ? `（${info.sectionCode}）` : ""}`
+    : info
+      ? "公開段籍查詢暫無資料"
+      : "完成定位後查詢";
 
   return (
     <article className={`land-use-badge ${compact ? "compact" : ""} ${className ?? ""}`}>
@@ -25,8 +30,18 @@ export const LandUseBadge = ({ lat, lng, compact = false, className }: LandUseBa
         {info ? <Landmark size={19} /> : <MapPinned size={19} />}
       </div>
       <div>
-        <span>土地用途別</span>
-        <strong>{label}</strong>
+        <span>地號與土地用途別</span>
+        <strong>{landUseLabel}</strong>
+        <div className="land-parcel-grid">
+          <small>
+            <MapPinnedIcon size={13} />
+            地段：{sectionLabel}
+          </small>
+          <small>
+            <Landmark size={13} />
+            地號：{info?.parcelNumber ?? info?.parcelStatus ?? "尚未取得座標"}
+          </small>
+        </div>
         {info ? (
           <small>
             {info.latestYear ? `${info.latestYear}年${info.latestMonth ?? ""}月資料` : "公開圖資"} · {info.sourceName}

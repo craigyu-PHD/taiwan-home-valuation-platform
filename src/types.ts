@@ -16,6 +16,8 @@ export type PropertyCondition = "未提供" | "待整理" | "一般" | "良好" 
 
 export type Occupancy = "未提供" | "自住" | "出租中" | "空屋" | "自用營業";
 
+export type TransactionMode = "sale" | "rent";
+
 export type SpecialFactor =
   | "頂樓加蓋"
   | "違建"
@@ -118,6 +120,45 @@ export interface ValuationResult {
   factors: string[];
   methodologySummary: string;
   generatedAt: string;
+}
+
+export interface RentalReferenceCase extends WeightedCase {
+  estimatedMonthlyRentTwd: number;
+  rentPerPingTwd: number;
+  grossYieldPct: number;
+}
+
+export interface RentalValuationResult {
+  status: "estimated" | "low-confidence" | "not-suitable";
+  monthlyLowTwd?: number;
+  monthlyMedianTwd?: number;
+  monthlyHighTwd?: number;
+  rentPerPingLowTwd?: number;
+  rentPerPingMedianTwd?: number;
+  rentPerPingHighTwd?: number;
+  grossYieldPct?: number;
+  confidenceScore: number;
+  confidenceLevel: ConfidenceLevel;
+  referencesUsed: RentalReferenceCase[];
+  comparableCount: number;
+  nearestDistanceMeters?: number;
+  latestReferenceDate?: string;
+  reasons: string[];
+  warnings: string[];
+  factors: string[];
+  methodologySummary: string;
+  generatedAt: string;
+}
+
+export interface RentalMarketStats {
+  label: string;
+  segment: string;
+  count: number;
+  medianMonthlyRentTwd: number;
+  lowMonthlyRentTwd: number;
+  highMonthlyRentTwd: number;
+  medianRentPerPingTwd: number;
+  latestDate?: string;
 }
 
 export interface MarketStats {

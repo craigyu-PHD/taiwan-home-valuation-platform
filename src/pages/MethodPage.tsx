@@ -6,8 +6,8 @@ export const MethodPage = () => (
   <div className="page method-page">
     <section className="section-heading">
       <span className="eyebrow">方法與免責聲明</span>
-      <h1>估價邏輯、資料來源與系統限制</h1>
-      <p>本系統的核心不是預測唯一正確價格，而是透明呈現合理區間、案例依據與信心限制。</p>
+      <h1>找知道AI估價平臺的方法、資料來源與限制</h1>
+      <p>本系統的核心不是預測唯一正確價格，而是透明呈現買賣價格、租屋行情、案例依據與信心限制。</p>
     </section>
 
     <section className="method-grid">
@@ -17,7 +17,7 @@ export const MethodPage = () => (
         <p>
           正式版以內政部不動產成交案件實際資訊 Open Data 為主，下載本期與歷史批次資料後，
           轉成標準交易資料表並保留來源、版本與更新時間；土地用途與周邊機能則以國土測繪中心、
-          OpenStreetMap 與 Overpass 公開資料輔助判斷。
+          OpenStreetMap 與 Overpass 公開資料輔助判斷；租屋模式目前以成交樣本換算租金投報模型作為原型參考。
         </p>
         <a href={DATA_SOURCES.moiOpenData} className="text-link" target="_blank" rel="noreferrer">
           內政部不動產成交案件實際資訊資料供應系統
@@ -59,13 +59,13 @@ export const MethodPage = () => (
         地圖以 Leaflet 與 OpenStreetMap 圖磚為原型方案，必須顯示 OSM attribution、
         遵守快取與禁止大量下載規則。地址解析若使用 Nominatim，需限制每秒最多一請求、
         快取查詢結果、顯示來源，不做自動完成式高頻查詢；土地用途與周邊機能查詢也會做本機快取，
-        避免對免費公開服務造成高頻負載。
+        避免對免費公開服務造成高頻負載。完整地號查詢若需使用地籍 API，必須依法申請授權，不使用繞過限制的方式。
       </p>
       <h2>免責聲明</h2>
       <p>
         本估價結果由公開資料與模型計算產生，僅供市場行情參考，不構成正式不動產估價報告、
-        銀行核貸依據或成交價格保證。實際價格可能因屋況、產權、交易條件、市場變化、裝修、
-        車位、特殊使用狀況與買賣雙方議價而有所不同。
+        銀行核貸依據、租賃鑑價或成交/出租價格保證。實際價格可能因屋況、產權、交易條件、市場變化、裝修、
+        車位、特殊使用狀況、租約條件與買賣或租賃雙方議價而有所不同。
       </p>
     </section>
 

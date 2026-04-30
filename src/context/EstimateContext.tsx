@@ -5,19 +5,33 @@ import {
   useMemo,
   useState,
 } from "react";
-import type { LocationCandidate, PropertyInput, ValuationResult } from "../types";
+import type { LocationCandidate, PropertyInput, RentalValuationResult, TransactionMode, ValuationResult } from "../types";
+import { estimateRental } from "../services/rental";
 import { createDefaultInput, estimateProperty } from "../services/valuation";
 
 interface EstimateContextValue {
   propertyInput: PropertyInput;
   selectedLocation?: LocationCandidate;
   valuation?: ValuationResult;
+  rentalValuation?: RentalValuationResult;
+  transactionMode: TransactionMode;
+  setTransactionMode: (mode: TransactionMode) => void;
   setSelectedLocation: (candidate: LocationCandidate) => void;
   updatePropertyInput: (updates: Partial<PropertyInput>) => void;
   runValuation: (updates?: Partial<PropertyInput>) => ValuationResult;
 }
 
 const EstimateContext = createContext<EstimateContextValue | undefined>(undefined);
+const MODE_STORAGE_KEY = "taiwan-valuation-transaction-mode";
+
+const readInitialMode = (): TransactionMode => {
+  try {
+    const stored = localStorage.getItem(MODE_STORAGE_KEY);
+    return stored === "rent" ? "rent" : "sale";
+  } catch {
+    return "sale";
+  }
+};
 
 export const EstimateProvider = ({ children }: PropsWithChildren) => {
   const [propertyInput, setPropertyInput] = useState<PropertyInput>(() => createDefaultInput());
@@ -35,12 +49,27 @@ export const EstimateProvider = ({ children }: PropsWithChildren) => {
   const [valuation, setValuation] = useState<ValuationResult | undefined>(() =>
     estimateProperty(createDefaultInput()),
   );
+  const [rentalValuation, setRentalValuation] = useState<RentalValuationResult | undefined>(() =>
+    estimateRental(createDefaultInput()),
+  );
+  const [transactionModeState, setTransactionModeState] = useState<TransactionMode>(() => readInitialMode());
+  const setTransactionMode = (mode: TransactionMode) => {
+    setTransactionModeState(mode);
+    try {
+      localStorage.setItem(MODE_STORAGE_KEY, mode);
+    } catch {
+      // Persistence is best-effort only.
+    }
+  };
 
   const value = useMemo<EstimateContextValue>(
     () => ({
       propertyInput,
       selectedLocation,
       valuation,
+      rentalValuation,
+      transactionMode: transactionModeState,
+      setTransactionMode,
       setSelectedLocation: (candidate) => {
         setSelectedLocationState(candidate);
         setPropertyInput((current) => ({
@@ -61,11 +90,12 @@ export const EstimateProvider = ({ children }: PropsWithChildren) => {
         const next = { ...propertyInput, ...updates };
         setPropertyInput(next);
         const result = estimateProperty(next);
+        setRentalValuation(estimateRental(next));
         setValuation(result);
         return result;
       },
     }),
-    [propertyInput, selectedLocation, valuation],
+    [propertyInput, selectedLocation, valuation, rentalValuation, transactionModeState],
   );
 
   return <EstimateContext.Provider value={value}>{children}</EstimateContext.Provider>;

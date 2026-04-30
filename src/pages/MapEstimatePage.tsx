@@ -3,6 +3,9 @@ import { useEffect, useMemo, useState } from "react";
 import { AddressSearch } from "../components/AddressSearch";
 import { CaseMap } from "../components/CaseMap";
 import { LandUseBadge } from "../components/LandUseBadge";
+import { ModeSwitch } from "../components/ModeSwitch";
+import { RentalReferenceList } from "../components/RentalReferenceList";
+import { RentalSummary } from "../components/RentalSummary";
 import { ResultSummary } from "../components/ResultSummary";
 import { TransactionList } from "../components/TransactionList";
 import { useEstimate } from "../context/EstimateContext";
@@ -13,11 +16,12 @@ import {
   type BoundaryFeature,
 } from "../services/boundaries";
 import { reverseGeocodePoint } from "../services/geocode";
+import { estimateRental, getNearbyRentalReferences } from "../services/rental";
 import { estimateProperty, getNearbyTransactions } from "../services/valuation";
 import type { LocationCandidate } from "../types";
 
 export const MapEstimatePage = () => {
-  const { propertyInput, setSelectedLocation, runValuation, valuation } = useEstimate();
+  const { propertyInput, setSelectedLocation, runValuation, valuation, rentalValuation, transactionMode } = useEstimate();
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [boundary, setBoundary] = useState<BoundaryFeature | undefined>();
   const [locatorStatus, setLocatorStatus] = useState("搜尋地址，或直接拖曳地圖上的小水豚到目標位置。");
@@ -27,10 +31,13 @@ export const MapEstimatePage = () => {
     getTownBoundary(propertyInput.city, propertyInput.district).then(setBoundary).catch(() => setBoundary(undefined));
   }, [propertyInput.city, propertyInput.district]);
   const nearby = useMemo(() => {
-    return getNearbyTransactions(center[0], center[1], 3500);
-  }, [center]);
+    return transactionMode === "sale"
+      ? getNearbyTransactions(center[0], center[1], 3500)
+      : getNearbyRentalReferences(center[0], center[1], 3500, propertyInput);
+  }, [center, propertyInput, transactionMode]);
 
   const preview = valuation ?? estimateProperty(propertyInput, demoTransactions);
+  const rentPreview = rentalValuation ?? estimateRental(propertyInput, demoTransactions);
 
   const applyValuationForCandidate = (candidate: LocationCandidate) => {
     setSelectedLocation(candidate);
@@ -113,6 +120,7 @@ export const MapEstimatePage = () => {
     <div className="map-page">
       <section className="map-search-bar">
         <div className="map-search-card">
+          <ModeSwitch compact />
           <AddressSearch compact buttonLabel="搜尋位置" onSelect={(candidate) => void applyCandidate(candidate)} />
           <p className="map-locator-status">{locatorStatus}</p>
         </div>
@@ -133,7 +141,7 @@ export const MapEstimatePage = () => {
         <aside className={`map-side-panel ${drawerOpen ? "is-open" : ""}`}>
           <button className="drawer-handle" type="button" onClick={() => setDrawerOpen((value) => !value)}>
             <SlidersHorizontal size={18} />
-            即時估價結果
+            {transactionMode === "sale" ? "即時估價結果" : "即時租金結果"}
           </button>
           <div className="map-result-context">
             <span>目前定位</span>
@@ -141,8 +149,17 @@ export const MapEstimatePage = () => {
             <small>{locatorStatus}</small>
           </div>
           <LandUseBadge lat={propertyInput.lat} lng={propertyInput.lng} compact />
-          <ResultSummary result={preview} compact />
-          <TransactionList cases={preview.casesUsed.slice(0, 5)} />
+          {transactionMode === "sale" ? (
+            <>
+              <ResultSummary result={preview} compact />
+              <TransactionList cases={preview.casesUsed.slice(0, 5)} />
+            </>
+          ) : (
+            <>
+              <RentalSummary result={rentPreview} compact />
+              <RentalReferenceList cases={rentPreview.referencesUsed.slice(0, 5)} />
+            </>
+          )}
         </aside>
       </section>
     </div>

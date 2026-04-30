@@ -1,16 +1,18 @@
 import { BarChart3, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { CaseMap } from "../components/CaseMap";
+import { ModeSwitch } from "../components/ModeSwitch";
 import { useEstimate } from "../context/EstimateContext";
 import { demoTransactions } from "../data/demoTransactions";
 import { taiwanAdmin, taiwanCities } from "../data/taiwanAdmin";
 import { findTownByPoint, getBoundaryCenter, getTownBoundary, type BoundaryFeature } from "../services/boundaries";
 import { reverseGeocodePoint } from "../services/geocode";
+import { getRentalMarketStats } from "../services/rental";
 import { getMarketStats } from "../services/valuation";
-import { formatDate, formatUnitWan } from "../utils/format";
+import { formatDate, formatRentPerPing, formatTwd, formatUnitWan } from "../utils/format";
 
 export const MarketPage = () => {
-  const { propertyInput, setSelectedLocation } = useEstimate();
+  const { propertyInput, setSelectedLocation, transactionMode } = useEstimate();
   const [city, setCity] = useState("臺北市");
   const districts = useMemo(
     () => taiwanAdmin[city as keyof typeof taiwanAdmin] ?? [],
@@ -21,6 +23,7 @@ export const MarketPage = () => {
   const [pickedPoint, setPickedPoint] = useState<[number, number] | undefined>();
   const [locatorStatus, setLocatorStatus] = useState("選擇行政區，或拖曳小人到地圖上任一位置切換區域行情。");
   const stats = getMarketStats(city, district);
+  const rentStats = getRentalMarketStats(city, district);
   const mapCases = demoTransactions.filter((item) => item.city === city && item.district === district);
   useEffect(() => {
     if (propertyInput.city) setCity(propertyInput.city);
@@ -67,12 +70,13 @@ export const MarketPage = () => {
   return (
     <div className="page market-page">
       <section className="section-heading">
-        <span className="eyebrow">區域行情</span>
-        <h1>查詢行政區、路段或社區近期行情</h1>
-        <p>區域行情只能作為輔助參考；個別物件仍需回到周邊成交、建物條件與特殊狀況判斷。</p>
+        <span className="eyebrow">區域行情 / {transactionMode === "sale" ? "買賣房屋" : "租屋"}</span>
+        <h1>{transactionMode === "sale" ? "查詢行政區、路段或社區近期行情" : "查詢行政區租屋月租與坪租行情"}</h1>
+        <p>{transactionMode === "sale" ? "區域行情只能作為輔助參考；個別物件仍需回到周邊成交、建物條件與特殊狀況判斷。" : "租屋行情會以區域成交與投報模型換算月租區間，正式版可再接入租賃實價登錄與刊登資料驗證。"}</p>
       </section>
 
       <section className="market-toolbar">
+        <ModeSwitch compact />
         <label>
           縣市
           <select
@@ -126,11 +130,11 @@ export const MarketPage = () => {
       <section className="market-table">
         <div className="table-header">
           <BarChart3 size={20} />
-          <strong>{city}{district} 行情摘要</strong>
+          <strong>{city}{district} {transactionMode === "sale" ? "買賣行情摘要" : "租屋行情摘要"}</strong>
         </div>
-        {stats.length === 0 ? (
+        {transactionMode === "sale" && stats.length === 0 ? (
           <div className="empty-state">示範資料中沒有此區域行情；正式版應提示資料不足並建議擴大範圍。</div>
-        ) : (
+        ) : transactionMode === "sale" ? (
           <table>
             <thead>
               <tr>
@@ -154,6 +158,35 @@ export const MarketPage = () => {
                   <td>
                     {formatUnitWan(item.lowUnitPriceWan)} - {formatUnitWan(item.highUnitPriceWan)}
                   </td>
+                  <td>{formatDate(item.latestDate)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : rentStats.length === 0 ? (
+          <div className="empty-state">示範資料中沒有此區域租屋行情；請改查鄰近行政區或補充租賃資料源。</div>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>範圍</th>
+                <th>建築類型</th>
+                <th>參考數</th>
+                <th>月租中位數</th>
+                <th>合理月租區間</th>
+                <th>坪租中位數</th>
+                <th>最近資料</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rentStats.map((item) => (
+                <tr key={`${item.label}-${item.segment}-rent`}>
+                  <td>{item.label}</td>
+                  <td>{item.segment}</td>
+                  <td>{item.count}</td>
+                  <td>{formatTwd(item.medianMonthlyRentTwd)}</td>
+                  <td>{formatTwd(item.lowMonthlyRentTwd)} - {formatTwd(item.highMonthlyRentTwd)}</td>
+                  <td>{formatRentPerPing(item.medianRentPerPingTwd)}</td>
                   <td>{formatDate(item.latestDate)}</td>
                 </tr>
               ))}
