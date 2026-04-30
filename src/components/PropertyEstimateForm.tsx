@@ -2,22 +2,20 @@ import {
   ArrowRight,
   Building2,
   Car,
-  Home,
   Layers,
   MapPin,
   RotateCcw,
   Ruler,
   Search,
   SlidersHorizontal,
-  TrainFront,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useEstimate } from "../context/EstimateContext";
 import { taiwanAdmin, taiwanCities } from "../data/taiwanAdmin";
 import { getBoundaryCenter, getTownBoundary } from "../services/boundaries";
-import { propertyTypes } from "../services/valuation";
-import type { LocationCandidate, ParkingType, PropertyInput } from "../types";
+import { propertyTypes, specialFactors } from "../services/valuation";
+import type { LocationCandidate, ParkingType, PropertyInput, SpecialFactor } from "../types";
 import { normalizeAddressText } from "../utils/addressNormalize";
 
 interface PropertyEstimateFormProps {
@@ -45,11 +43,9 @@ export const PropertyEstimateForm = ({
   const [number, setNumber] = useState("7");
   const [floorText, setFloorText] = useState(String(propertyInput.floor ?? 10));
   const [mode, setMode] = useState<"實價登錄" | "開價搜尋" | "智慧估價">("智慧估價");
-  const [searchMode, setSearchMode] = useState<"區域搜尋" | "捷運搜尋">("區域搜尋");
+  const [searchMode, setSearchMode] = useState<"地址搜尋" | "區域搜尋">("地址搜尋");
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [keyword, setKeyword] = useState("");
-  const [mrtLine, setMrtLine] = useState("淡水信義線");
-  const [mrtStation, setMrtStation] = useState("台北101/世貿");
 
   useEffect(() => {
     if (!districts.includes(district as never)) {
@@ -58,16 +54,19 @@ export const PropertyEstimateForm = ({
   }, [district, districts]);
 
   const buildAddress = () => {
+    if (searchMode === "區域搜尋") {
+      return [city, district, keyword].filter(Boolean).join("");
+    }
     const parts = [
       city,
       district,
+      keyword,
       road ? `${road}${section ? `${section}段` : ""}` : "",
       lane ? `${lane}巷` : "",
       alley ? `${alley}弄` : "",
       number ? `${number}號` : "",
-      floorText ? `${floorText}樓` : "",
     ];
-    return parts.join("");
+    return parts.filter(Boolean).join("");
   };
 
   const syncAddress = async () => {
@@ -79,10 +78,10 @@ export const PropertyEstimateForm = ({
       label: address,
       city,
       district,
-      road: road ? `${road}${section ? `${section}段` : ""}` : road,
+      road: searchMode === "地址搜尋" && road ? `${road}${section ? `${section}段` : ""}` : undefined,
       lat: center?.[0] ?? propertyInput.lat ?? 25.033964,
       lng: center?.[1] ?? propertyInput.lng ?? 121.564468,
-      confidence: center ? 0.74 : 0.58,
+      confidence: center ? (searchMode === "地址搜尋" ? 0.78 : 0.72) : 0.58,
       source: "manual",
     };
     setSelectedLocation(candidate);
@@ -91,6 +90,7 @@ export const PropertyEstimateForm = ({
       city,
       district,
       road: candidate.road,
+      communityName: keyword || undefined,
       address,
       lat: candidate.lat,
       lng: candidate.lng,
@@ -124,8 +124,6 @@ export const PropertyEstimateForm = ({
     setNumber("7");
     setFloorText("10");
     setKeyword("");
-    setMrtLine("淡水信義線");
-    setMrtStation("台北101/世貿");
     updatePropertyInput({
       propertyType: "住宅大樓",
       areaPing: 32,
@@ -138,6 +136,13 @@ export const PropertyEstimateForm = ({
       occupancy: "自住",
       specialFactors: [],
     });
+  };
+
+  const toggleSpecialFactor = (factor: SpecialFactor) => {
+    const nextFactors = propertyInput.specialFactors.includes(factor)
+      ? propertyInput.specialFactors.filter((item) => item !== factor)
+      : [...propertyInput.specialFactors, factor];
+    updatePropertyInput({ specialFactors: nextFactors });
   };
 
   return (
@@ -157,27 +162,27 @@ export const PropertyEstimateForm = ({
       <div className="search-mode-tabs">
         <button
           type="button"
-          className={searchMode === "區域搜尋" ? "active" : ""}
-          onClick={() => setSearchMode("區域搜尋")}
+          className={searchMode === "地址搜尋" ? "active" : ""}
+          onClick={() => setSearchMode("地址搜尋")}
         >
           <Search size={17} />
-          區域搜尋
+          地址搜尋
         </button>
         <button
           type="button"
-          className={searchMode === "捷運搜尋" ? "active" : ""}
-          onClick={() => setSearchMode("捷運搜尋")}
+          className={searchMode === "區域搜尋" ? "active" : ""}
+          onClick={() => setSearchMode("區域搜尋")}
         >
-          <TrainFront size={17} />
-          捷運搜尋
+          <MapPin size={17} />
+          區域搜尋
         </button>
       </div>
 
       <div className="structured-section-title">
         <MapPin size={18} />
-        <strong>{searchMode === "區域搜尋" ? "區域與地址" : "捷運站周邊"}</strong>
+        <strong>{searchMode === "地址搜尋" ? "地址搜尋" : "行政區行情搜尋"}</strong>
       </div>
-      {searchMode === "區域搜尋" ? (
+      {searchMode === "地址搜尋" ? (
         <div className="structured-grid address-parts">
           <label>
             縣市 *
@@ -196,11 +201,11 @@ export const PropertyEstimateForm = ({
             </select>
           </label>
           <label className="wide-field">
-            以地址/社區搜尋
+            社區 / 地標（可選）
             <input
               value={keyword}
               onChange={(event) => setKeyword(event.target.value)}
-              placeholder="請輸入地址或社區名稱"
+              placeholder="例：台北101、青埔特區、某某社區"
             />
           </label>
           <label>
@@ -223,115 +228,136 @@ export const PropertyEstimateForm = ({
             號
             <input value={number} onChange={(event) => setNumber(event.target.value)} placeholder="例：7" />
           </label>
-          <label>
-            樓層
-            <input value={floorText} onChange={(event) => setFloorText(event.target.value)} placeholder="例：10" />
-          </label>
         </div>
       ) : (
         <div className="structured-grid address-parts">
           <label>
-            捷運路線
-            <select value={mrtLine} onChange={(event) => setMrtLine(event.target.value)}>
-              {["淡水信義線", "板南線", "松山新店線", "中和新蘆線", "文湖線", "高雄紅線", "高雄橘線"].map(
-                (line) => (
-                  <option key={line}>{line}</option>
-                ),
-              )}
+            縣市 *
+            <select value={city} onChange={(event) => setCity(event.target.value)}>
+              {taiwanCities.map((item) => (
+                <option key={item}>{item}</option>
+              ))}
             </select>
           </label>
           <label>
-            捷運站
-            <input value={mrtStation} onChange={(event) => setMrtStation(event.target.value)} />
+            區域 *
+            <select value={district} onChange={(event) => setDistrict(event.target.value)}>
+              {districts.map((item) => (
+                <option key={item}>{item}</option>
+              ))}
+            </select>
+          </label>
+          <label className="wide-field">
+            路段 / 社區 / 生活圈（可選）
+            <input
+              value={keyword}
+              onChange={(event) => setKeyword(event.target.value)}
+              placeholder="例：藝文特區、中正路、某某社區"
+            />
           </label>
           <label>
-            步行距離
+            成交範圍
             <select>
-              <option>500 公尺內</option>
-              <option>800 公尺內</option>
-              <option>1 公里內</option>
+              <option>指定行政區</option>
+              <option>行政區 + 相鄰生活圈</option>
+              <option>僅同路段</option>
             </select>
           </label>
           <label>
-            樓層
-            <input value={floorText} onChange={(event) => setFloorText(event.target.value)} placeholder="例：10" />
+            資料期間
+            <select>
+              <option>近 12 個月優先</option>
+              <option>近 24 個月</option>
+              <option>近 36 個月</option>
+            </select>
           </label>
         </div>
       )}
 
-      <div className="structured-section-title">
-        <Building2 size={18} />
-        <strong>估價條件</strong>
-      </div>
-      <div className="structured-grid">
-        <label>
-          房屋類型
-          <select
-            value={propertyInput.propertyType}
-            onChange={(event) => updatePropertyInput({ propertyType: event.target.value as PropertyInput["propertyType"] })}
-          >
-            {propertyTypes.map((type) => (
-              <option key={type}>{type}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>
-            <Ruler size={15} />
-            權狀坪數
-          </span>
-          <input
-            type="number"
-            inputMode="decimal"
-            min="1"
-            value={propertyInput.areaPing ?? ""}
-            onChange={(event) => updatePropertyInput({ areaPing: updateNumber(event.target.value) })}
-          />
-        </label>
-        <label>
-          <span>
-            <Layers size={15} />
-            總樓層
-          </span>
-          <input
-            type="number"
-            inputMode="numeric"
-            value={propertyInput.totalFloors ?? ""}
-            onChange={(event) => updatePropertyInput({ totalFloors: updateNumber(event.target.value) })}
-          />
-        </label>
-        <label>
-          屋齡
-          <input
-            type="number"
-            inputMode="numeric"
-            min="0"
-            value={propertyInput.ageYears ?? ""}
-            onChange={(event) => updatePropertyInput({ ageYears: updateNumber(event.target.value) })}
-          />
-        </label>
-        <label>
-          <span>
-            <Car size={15} />
-            車位
-          </span>
-          <select
-            value={propertyInput.parkingType}
-            onChange={(event) =>
-              updatePropertyInput({
-                parkingType: event.target.value as ParkingType,
-                hasParking: event.target.value !== "無",
-              })
-            }
-          >
-            {["無", "坡道平面", "坡道機械", "機械", "平面", "其他"].map((type) => (
-              <option key={type}>{type}</option>
-            ))}
-          </select>
-        </label>
-      </div>
       {advancedOpen && (
         <div className="advanced-filter-panel">
+          <div className="advanced-panel-heading">
+            <Building2 size={18} />
+            <strong>估價條件與進階篩選</strong>
+            <span>條件越完整，系統越能縮小價格區間並提高信心分數。</span>
+          </div>
+          <label>
+            房屋類型
+            <select
+              value={propertyInput.propertyType}
+              onChange={(event) =>
+                updatePropertyInput({ propertyType: event.target.value as PropertyInput["propertyType"] })
+              }
+            >
+              {propertyTypes.map((type) => (
+                <option key={type}>{type}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>
+              <Ruler size={15} />
+              權狀坪數
+            </span>
+            <input
+              type="number"
+              inputMode="decimal"
+              min="1"
+              value={propertyInput.areaPing ?? ""}
+              onChange={(event) => updatePropertyInput({ areaPing: updateNumber(event.target.value) })}
+            />
+          </label>
+          <label>
+            樓層
+            <input
+              type="number"
+              inputMode="numeric"
+              value={floorText}
+              onChange={(event) => setFloorText(event.target.value)}
+              placeholder="例：10"
+            />
+          </label>
+          <label>
+            <span>
+              <Layers size={15} />
+              總樓層
+            </span>
+            <input
+              type="number"
+              inputMode="numeric"
+              value={propertyInput.totalFloors ?? ""}
+              onChange={(event) => updatePropertyInput({ totalFloors: updateNumber(event.target.value) })}
+            />
+          </label>
+          <label>
+            屋齡
+            <input
+              type="number"
+              inputMode="numeric"
+              min="0"
+              value={propertyInput.ageYears ?? ""}
+              onChange={(event) => updatePropertyInput({ ageYears: updateNumber(event.target.value) })}
+            />
+          </label>
+          <label>
+            <span>
+              <Car size={15} />
+              車位
+            </span>
+            <select
+              value={propertyInput.parkingType}
+              onChange={(event) =>
+                updatePropertyInput({
+                  parkingType: event.target.value as ParkingType,
+                  hasParking: event.target.value !== "無",
+                })
+              }
+            >
+              {["無", "坡道平面", "坡道機械", "機械", "平面", "其他"].map((type) => (
+                <option key={type}>{type}</option>
+              ))}
+            </select>
+          </label>
           <label>
             屋況
             <select
@@ -354,6 +380,21 @@ export const PropertyEstimateForm = ({
               ))}
             </select>
           </label>
+          <div className="special-factor-field">
+            <span>特殊狀況</span>
+            <div className="special-factor-grid">
+              {specialFactors.map((factor) => (
+                <label className="checkbox-pill" key={factor}>
+                  <input
+                    type="checkbox"
+                    checked={propertyInput.specialFactors.includes(factor)}
+                    onChange={() => toggleSpecialFactor(factor)}
+                  />
+                  <span>{factor}</span>
+                </label>
+              ))}
+            </div>
+          </div>
           <label>
             交易狀態
             <select>
@@ -382,7 +423,7 @@ export const PropertyEstimateForm = ({
         </button>
         <button className="filter-button" type="button" onClick={() => setAdvancedOpen((value) => !value)}>
           <SlidersHorizontal size={17} />
-          進階篩選
+          進階篩選與估價條件
         </button>
         <button className="primary-button" type="button" onClick={submit}>
           <Search size={18} />

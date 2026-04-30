@@ -19,10 +19,20 @@ import type { TransactionCase } from "../types";
 import { formatDistance, formatUnitWan, formatWan } from "../utils/format";
 
 const selectedIcon = L.divIcon({
-  className: "selected-location-marker",
-  html: "<span><i></i></span>",
-  iconSize: [34, 42],
-  iconAnchor: [17, 40],
+  className: "pegman-marker-icon",
+  html: `
+    <div class="pegman-marker" aria-hidden="true">
+      <span class="pegman-head"></span>
+      <span class="pegman-body"></span>
+      <span class="pegman-arm left"></span>
+      <span class="pegman-arm right"></span>
+      <span class="pegman-leg left"></span>
+      <span class="pegman-leg right"></span>
+      <span class="pegman-shadow"></span>
+    </div>
+  `,
+  iconSize: [44, 58],
+  iconAnchor: [22, 54],
 });
 
 const Recenter = ({ center }: { center: [number, number] }) => {
@@ -85,7 +95,7 @@ export const CaseMap = ({
 
   return (
     <div className={`map-frame ${className ?? ""}`}>
-      {onPick && <div className="map-interaction-hint">拖曳紅色定位點，或點選地圖校正位置</div>}
+      {onPick && <div className="map-interaction-hint">拖曳黃色小人到目標位置，或點選地圖即時校正估價區塊</div>}
       <MapContainer center={center} zoom={15} scrollWheelZoom className="leaflet-map">
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -99,11 +109,12 @@ export const CaseMap = ({
             key={`${highlightLabel ?? "boundary"}-${JSON.stringify(center)}`}
             data={highlightGeometry as GeoJsonObject}
             style={{
-              color: "#f97316",
-              fillColor: "#2563eb",
-              fillOpacity: 0.18,
-              weight: 4,
-              className: "district-glow",
+              color: "#0ea5e9",
+              fillColor: "#22d3ee",
+              fillOpacity: 0.22,
+              weight: 5,
+              dashArray: "14 10",
+              className: "district-flow",
             }}
           >
             {highlightLabel && (
@@ -117,11 +128,12 @@ export const CaseMap = ({
           <Polygon
             positions={highlightPolygon}
             pathOptions={{
-              color: "#f59e0b",
-              fillColor: "#fde68a",
+              color: "#0ea5e9",
+              fillColor: "#22d3ee",
               fillOpacity: 0.22,
-              weight: 3,
-              className: "district-glow",
+              weight: 5,
+              dashArray: "14 10",
+              className: "district-flow",
             }}
           >
             {highlightLabel && (

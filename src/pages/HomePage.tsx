@@ -1,4 +1,4 @@
-import { ArrowRight, BarChart3, CheckCircle2, Database, MapPinned, ShieldAlert } from "lucide-react";
+import { BarChart3, CheckCircle2, MapPinned, ShieldAlert } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { DisclaimerBox } from "../components/DisclaimerBox";
 import { PropertyEstimateForm } from "../components/PropertyEstimateForm";
@@ -13,18 +13,22 @@ export const HomePage = () => {
 
   return (
     <div className="page home-page">
-      <section className="method-strip">
-        <div>
-          <Database size={18} />
-          <strong>方法摘要</strong>
-        </div>
-        <span>實價登錄成交案例</span>
-        <span>同社區/同路段優先</span>
-        <span>輸出區間與信心分數</span>
-        <a className="text-link" href="#method">
-          詳細方法
-          <ArrowRight size={15} />
-        </a>
+      <section className="principle-grid home-principles">
+        <article>
+          <CheckCircle2 size={21} />
+          <h2>以成交資料為主</h2>
+          <p>優先採用同社區、同路段、近期且條件相近的實價登錄案例。</p>
+        </article>
+        <article>
+          <BarChart3 size={21} />
+          <h2>輸出區間而非單點</h2>
+          <p>價格區間會反映屋況未知、樣本差異、交易時間與模型不確定性。</p>
+        </article>
+        <article>
+          <ShieldAlert size={21} />
+          <h2>資料不足會拒估</h2>
+          <p>特殊產權、交易稀少或樣本不足時，不強行給出確定價格。</p>
+        </article>
       </section>
 
       <section className="home-hero">
@@ -41,10 +45,6 @@ export const HomePage = () => {
               <MapPinned size={18} />
               使用地圖選點
             </NavLink>
-            <a className="text-link" href="#method">
-              查看估價邏輯
-              <ArrowRight size={16} />
-            </a>
           </div>
         </div>
         <aside className="hero-panel">
@@ -83,24 +83,6 @@ export const HomePage = () => {
             <strong>{valuation?.confidenceScore ?? 0}/100</strong>
           </div>
         </aside>
-      </section>
-
-      <section className="principle-grid">
-        <article>
-          <CheckCircle2 size={22} />
-          <h2>以成交資料為主</h2>
-          <p>優先採用同社區、同路段、近期且條件相近的實價登錄案例。</p>
-        </article>
-        <article>
-          <BarChart3 size={22} />
-          <h2>輸出區間而非單點</h2>
-          <p>價格區間會反映屋況未知、樣本差異、交易時間與模型不確定性。</p>
-        </article>
-        <article>
-          <ShieldAlert size={22} />
-          <h2>資料不足會拒估</h2>
-          <p>凶宅、持分、法拍、特殊產權或樣本不足時，不強行給出確定價格。</p>
-        </article>
       </section>
 
       <DisclaimerBox />

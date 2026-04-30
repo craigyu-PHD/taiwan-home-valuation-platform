@@ -98,7 +98,7 @@ export const MarketPage = () => {
             </thead>
             <tbody>
               {stats.map((item) => (
-                <tr key={item.label}>
+                <tr key={`${item.label}-${item.segment}-${item.transactionStatus}`}>
                   <td>{item.label}</td>
                   <td>{item.segment}</td>
                   <td>{item.transactionStatus}</td>
