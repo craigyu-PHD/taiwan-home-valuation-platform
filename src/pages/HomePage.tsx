@@ -117,6 +117,31 @@ export const HomePage = () => {
         </aside>
       </section>
 
+      <section className="home-quick-tools">
+        <div className="section-heading compact-heading">
+          <span className="eyebrow">常用工具</span>
+          <h2>估價、行情與出售成本分開查</h2>
+          <p>主流程維持簡潔，稅費屬於賣方出售成本，另外試算，不併入房屋市場價格。</p>
+        </div>
+        <div className="quick-tool-grid">
+          <NavLink to="/" className="quick-tool-card">
+            <Calculator size={20} />
+            <strong>房屋估價</strong>
+            <span>輸入地址與條件，查看合理價格區間。</span>
+          </NavLink>
+          <NavLink to="/market" className="quick-tool-card">
+            <MapPinned size={20} />
+            <strong>區域行情</strong>
+            <span>依行政區查看六類房屋分類行情。</span>
+          </NavLink>
+          <NavLink to="/land-value-tax" className="quick-tool-card tax">
+            <ReceiptText size={20} />
+            <strong>賣屋稅費試算</strong>
+            <span>延伸估算土地增值稅、自用住宅優惠與重購退稅。</span>
+          </NavLink>
+        </div>
+      </section>
+
       {hasInlineResult && (valuation || rentalValuation) && (
         <section className="home-inline-result">
           <div className="section-heading compact-heading">

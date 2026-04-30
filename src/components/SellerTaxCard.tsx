@@ -10,8 +10,8 @@ export const SellerTaxCard = () => {
     <section className="seller-tax-card">
       <div>
         <ReceiptText size={23} />
-        <span className="eyebrow">出售成本試算</span>
-        <h2>賣方稅費試算</h2>
+        <span className="eyebrow">估價結果延伸模組</span>
+        <h2>出售成本試算 / 土地增值稅估算</h2>
         <p>若你打算出售此房屋，除了成交價格，也需要估算土地增值稅、自用住宅優惠與重購退稅可能性。</p>
       </div>
       <div className="seller-tax-mini">

@@ -542,6 +542,63 @@ main {
   transform: translateY(-1px);
 }
 
+.home-quick-tools {
+  margin-top: 18px;
+  padding: 20px;
+  border: 1px solid rgba(203, 216, 227, 0.86);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(247, 251, 255, 0.92)),
+    linear-gradient(90deg, rgba(37, 99, 235, 0.06), rgba(245, 158, 11, 0.08));
+  box-shadow: 0 14px 30px rgba(24, 39, 56, 0.07);
+}
+
+.quick-tool-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.quick-tool-card {
+  display: grid;
+  gap: 7px;
+  align-content: start;
+  min-height: 130px;
+  padding: 16px;
+  border: 1px solid rgba(203, 216, 227, 0.88);
+  border-radius: 8px;
+  color: #243247;
+  background: rgba(255, 255, 255, 0.86);
+  text-decoration: none;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.quick-tool-card:hover {
+  border-color: var(--mode-primary);
+  box-shadow: 0 12px 26px rgba(37, 99, 235, 0.12);
+  transform: translateY(-2px);
+}
+
+.quick-tool-card.tax {
+  border-color: rgba(245, 158, 11, 0.32);
+  background:
+    linear-gradient(135deg, #fff, #fff7ed);
+}
+
+.quick-tool-card strong {
+  color: #162033;
+  font-size: 17px;
+}
+
+.quick-tool-card span {
+  color: #526274;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
 .mini-chart-card {
   padding: 16px;
   border: 1px solid var(--line);
@@ -1823,6 +1880,34 @@ main {
   align-items: center;
   gap: 5px;
   color: #405066;
+}
+
+.land-use-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin: 8px 0;
+}
+
+.land-use-detail-grid div {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid rgba(203, 216, 227, 0.8);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.land-use-detail-grid div span {
+  color: #637083;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.land-use-detail-grid div strong {
+  margin: 2px 0 0;
+  color: #243247;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .map-side-panel .price-grid {
@@ -3537,7 +3622,10 @@ td {
   .decision-price-band,
   .negotiation-toolkit,
   .strategy-synthesis-grid,
+  .quick-tool-grid,
   .intel-pill-grid,
+  .home-tool-grid,
+  .land-use-detail-grid,
   .tax-form-card .form-grid {
     grid-template-columns: 1fr;
   }
@@ -3573,16 +3661,68 @@ td {
   }
 
   .map-page {
-    min-height: 720px;
+    display: block;
+    height: auto;
+    min-height: 0;
   }
 
   .map-search-bar {
+    position: static;
     padding: 10px;
+  }
+
+  .map-workspace {
+    display: grid;
+    width: min(100% - 20px, 1180px);
+    gap: 12px;
+    overflow: visible;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .map-workspace .map-frame {
+    height: 58vh;
+    min-height: 390px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: 0 12px 26px rgba(24, 39, 56, 0.08);
   }
 
   .map-frame,
   .leaflet-map {
-    min-height: 520px;
+    min-height: 390px;
+  }
+
+  .map-side-panel {
+    position: relative;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    max-height: none;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    transform: none;
+  }
+
+  .map-side-panel.is-open {
+    transform: none;
+  }
+
+  .market-toolbar {
+    display: grid;
+    align-items: stretch;
+  }
+
+  .market-locator-status {
+    flex-basis: auto;
+  }
+
+  .home-quick-tools,
+  .seller-tax-card,
+  .tax-form-card,
+  .tax-result-card {
+    padding: 14px;
   }
 
   .result-heading,

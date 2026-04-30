@@ -12,7 +12,7 @@ export const LandUseBadge = ({ lat, lng, compact = false, className }: LandUseBa
   const { info, status } = useLandUseInfo(lat, lng);
   const hasCoordinates = typeof lat === "number" && typeof lng === "number";
   const landUseLabel = info
-    ? `政府用途分類：${info.primaryName ?? "未分類"}${info.secondaryName ? `，${info.secondaryName}` : ""}${info.detailName ? ` / ${info.detailName}` : ""}`
+    ? info.detailName ?? info.secondaryName ?? info.primaryName ?? "公開圖資未標示細項"
     : status === "loading"
       ? "正在查詢最新公開圖資..."
       : hasCoordinates
@@ -32,16 +32,38 @@ export const LandUseBadge = ({ lat, lng, compact = false, className }: LandUseBa
       <div>
         <span>土地用途別</span>
         <strong>{landUseLabel}</strong>
-        <div className="land-parcel-grid">
-          <small>
-            <MapPinnedIcon size={13} />
-            公開段籍：{sectionLabel}
-          </small>
-        </div>
+        {info && (
+          <div className="land-use-detail-grid">
+            <div>
+              <span>政府大類</span>
+              <strong>{info.primaryName ?? "未標示"}</strong>
+            </div>
+            <div>
+              <span>用途類別</span>
+              <strong>{info.secondaryName ?? "未標示"}</strong>
+            </div>
+            <div>
+              <span>使用細項</span>
+              <strong>{info.detailName ?? "未標示"}</strong>
+            </div>
+            <div>
+              <span>公開段籍</span>
+              <strong>{sectionLabel}</strong>
+            </div>
+          </div>
+        )}
+        {!info && (
+          <div className="land-parcel-grid">
+            <small>
+              <MapPinnedIcon size={13} />
+              公開段籍：{sectionLabel}
+            </small>
+          </div>
+        )}
         {info ? (
           <small>
             {info.latestYear ? `${info.latestYear}年${info.latestMonth ?? ""}月資料` : "公開圖資"} · {info.sourceName}
-            {info.secondaryName && info.detailName ? ` · 說明：此座標落在「${info.secondaryName}」類別中的「${info.detailName}」使用型態。` : ""}
+            {info.secondaryName && info.detailName ? ` · 此座標落在「${info.secondaryName}」類別中的「${info.detailName}」使用型態。完整地號需授權地籍服務，本系統不以免費資料硬推。` : ""}
           </small>
         ) : (
           <small>{hasCoordinates ? "請微調定位點或稍後再試。" : "完成地址或地圖定位後會自動查詢。"}</small>

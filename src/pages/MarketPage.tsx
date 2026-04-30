@@ -139,8 +139,8 @@ export const MarketPage = () => {
             <thead>
               <tr>
                 <th>範圍</th>
-                <th>建築類型</th>
-                <th>交易狀態</th>
+                <th>房屋分類</th>
+                <th>分類標準</th>
                 <th>案例數</th>
                 <th>單價中位數</th>
                 <th>合理單價區間</th>

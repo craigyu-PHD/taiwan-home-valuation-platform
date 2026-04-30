@@ -5,6 +5,7 @@ import {
   Info,
   KeyRound,
   Map,
+  ReceiptText,
 } from "lucide-react";
 import { type PropsWithChildren } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
@@ -18,6 +19,7 @@ const navItems = [
   { to: "/estimate/map", label: "地圖估價", icon: Map, modeAware: true },
   { to: "/market", label: "區域行情", icon: BarChart3, modeAware: true },
   { to: "/decision-radar", label: "決策雷達", icon: Gauge, modeAware: true },
+  { to: "/land-value-tax", label: "稅費試算", icon: ReceiptText },
   { to: "/method", label: "方法與聲明", icon: Info },
 ];
 

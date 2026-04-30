@@ -116,28 +116,42 @@ const cityBaselines: Record<string, number> = {
   連江縣: 22,
 };
 
-const transactionStatus = (item: TransactionCase) => {
-  if (item.note?.includes("預售")) return "預售屋";
-  if (item.ageYears <= 3) return "新成屋";
-  return "中古屋";
+const marketCategoryMeta = [
+  { segment: "公寓", definition: "依建物型態" },
+  { segment: "華廈", definition: "依建物型態" },
+  { segment: "新成屋（五年內）", definition: "屋齡 0-5 年" },
+  { segment: "新古屋（五～十五年）", definition: "屋齡 5-15 年" },
+  { segment: "中古屋（十五年以上）", definition: "屋齡 15 年以上" },
+  { segment: "預售屋", definition: "預售交易" },
+] as const;
+
+const marketSegment = (item: TransactionCase) => {
+  if (item.note?.includes("預售")) return marketCategoryMeta[5];
+  if (item.propertyType === "公寓") return marketCategoryMeta[0];
+  if (item.propertyType === "華廈") return marketCategoryMeta[1];
+  if (item.ageYears <= 5) return marketCategoryMeta[2];
+  if (item.ageYears <= 15) return marketCategoryMeta[3];
+  return marketCategoryMeta[4];
 };
 
 const fallbackMarketStats = (city?: string, district?: string): MarketStats[] => {
   const base = cityBaselines[city ?? ""] ?? 25;
   const label = `${city ?? "全臺"}${district ?? ""}`;
-  const segments = [
-    ["住宅大樓", "中古屋", 1],
-    ["華廈", "中古屋", 0.86],
-    ["公寓", "中古屋", 0.72],
-    ["住宅大樓", "新成屋", 1.12],
-    ["住宅大樓", "預售屋", 1.18],
-  ] as const;
-  return segments.map(([segment, status, factor]) => {
+  const factors: Record<string, number> = {
+    公寓: 0.72,
+    華廈: 0.86,
+    "新成屋（五年內）": 1.12,
+    "新古屋（五～十五年）": 1,
+    "中古屋（十五年以上）": 0.82,
+    預售屋: 1.18,
+  };
+  return marketCategoryMeta.map(({ segment, definition }) => {
+    const factor = factors[segment] ?? 1;
     const medianPrice = base * factor;
     return {
       label,
       segment,
-      transactionStatus: status,
+      transactionStatus: definition,
       count: 0,
       medianUnitPriceWan: medianPrice,
       lowUnitPriceWan: medianPrice * 0.88,
@@ -555,7 +569,8 @@ export const getMarketStats = (
       : district
         ? `${item.city}${item.district}`
         : item.city;
-    const key = `${label}|${item.propertyType}|${transactionStatus(item)}`;
+    const category = marketSegment(item);
+    const key = `${label}|${category.segment}|${category.definition}`;
     groups.set(key, [...(groups.get(key) ?? []), item]);
   });
 
@@ -575,6 +590,12 @@ export const getMarketStats = (
         propertyTypes: [...new Set(cases.map((item) => item.propertyType))],
       };
     })
-    .sort((a, b) => b.count - a.count);
-  return stats.length ? stats : fallbackMarketStats(city, district);
+    .sort((a, b) => {
+      const aOrder = marketCategoryMeta.findIndex((item) => item.segment === a.segment);
+      const bOrder = marketCategoryMeta.findIndex((item) => item.segment === b.segment);
+      return aOrder - bOrder || b.count - a.count;
+    });
+  if (!stats.length) return fallbackMarketStats(city, district);
+  const fallback = fallbackMarketStats(city, district);
+  return marketCategoryMeta.map(({ segment }) => stats.find((item) => item.segment === segment) ?? fallback.find((item) => item.segment === segment)!);
 };
