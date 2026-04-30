@@ -1,6 +1,7 @@
 export interface NearbyFeature {
   name: string;
   category: "school" | "transit" | "green" | "retail" | "medical";
+  distanceMeters?: number;
 }
 
 export interface LocationIntel {
@@ -13,12 +14,12 @@ export interface LocationIntel {
   sourceUrl: string;
 }
 
-const CACHE_KEY = "taiwan-valuation-location-intel-v1";
-const RADIUS_METERS = 1200;
+const CACHE_KEY = "taiwan-valuation-location-intel-v2";
 
 type CacheMap = Record<string, LocationIntel>;
 
-const getCacheKey = (lat: number, lng: number) => `${lat.toFixed(4)},${lng.toFixed(4)}`;
+const getCacheKey = (lat: number, lng: number, radiusMeters: number) =>
+  `${lat.toFixed(4)},${lng.toFixed(4)},${radiusMeters}`;
 
 const loadCache = (): CacheMap => {
   try {
@@ -36,18 +37,30 @@ const saveCache = (cache: CacheMap) => {
   }
 };
 
-const getOverpassQuery = (lat: number, lng: number) => `
+const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
+
+const distanceMeters = (latA: number, lngA: number, latB: number, lngB: number) => {
+  const earth = 6371000;
+  const dLat = toRadians(latB - latA);
+  const dLng = toRadians(lngB - lngA);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.sin(dLng / 2) ** 2 * Math.cos(toRadians(latA)) * Math.cos(toRadians(latB));
+  return 2 * earth * Math.asin(Math.sqrt(a));
+};
+
+const getOverpassQuery = (lat: number, lng: number, radiusMeters: number) => `
 [out:json][timeout:8];
 (
-  node(around:${RADIUS_METERS},${lat},${lng})["amenity"~"school|kindergarten|college|university|library"];
-  way(around:${RADIUS_METERS},${lat},${lng})["amenity"~"school|kindergarten|college|university|library"];
-  node(around:${RADIUS_METERS},${lat},${lng})["public_transport"~"station|platform"];
-  node(around:${RADIUS_METERS},${lat},${lng})["railway"~"station|subway_entrance|tram_stop"];
-  node(around:${RADIUS_METERS},${lat},${lng})["highway"="bus_stop"];
-  node(around:${RADIUS_METERS},${lat},${lng})["leisure"="park"];
-  way(around:${RADIUS_METERS},${lat},${lng})["leisure"="park"];
-  node(around:${RADIUS_METERS},${lat},${lng})["shop"];
-  node(around:${RADIUS_METERS},${lat},${lng})["amenity"~"marketplace|restaurant|cafe|bank|post_office|hospital|clinic"];
+  node(around:${radiusMeters},${lat},${lng})["amenity"~"school|kindergarten|college|university|library"];
+  way(around:${radiusMeters},${lat},${lng})["amenity"~"school|kindergarten|college|university|library"];
+  node(around:${radiusMeters},${lat},${lng})["public_transport"~"station|platform"];
+  node(around:${radiusMeters},${lat},${lng})["railway"~"station|subway_entrance|tram_stop"];
+  node(around:${radiusMeters},${lat},${lng})["highway"="bus_stop"];
+  node(around:${radiusMeters},${lat},${lng})["leisure"="park"];
+  way(around:${radiusMeters},${lat},${lng})["leisure"="park"];
+  node(around:${radiusMeters},${lat},${lng})["shop"];
+  node(around:${radiusMeters},${lat},${lng})["amenity"~"marketplace|restaurant|cafe|bank|post_office|hospital|clinic"];
 );
 out center tags 80;
 `;
@@ -90,19 +103,19 @@ export const getMajorDevelopmentSignal = (city?: string, district?: string, road
   return `${city ?? ""}${district ?? ""}建設題材需以地方政府公告、交通建設進度與生活圈供給量交叉驗證。`;
 };
 
-export const lookupLocationIntel = async (lat?: number, lng?: number): Promise<LocationIntel | undefined> => {
+export const lookupLocationIntel = async (lat?: number, lng?: number, radiusMeters = 1200): Promise<LocationIntel | undefined> => {
   if (typeof lat !== "number" || typeof lng !== "number") return undefined;
   const cache = loadCache();
-  const cacheKey = getCacheKey(lat, lng);
+  const cacheKey = getCacheKey(lat, lng, radiusMeters);
   if (cache[cacheKey]) return cache[cacheKey];
 
-  const query = getOverpassQuery(lat, lng);
+  const query = getOverpassQuery(lat, lng, radiusMeters);
   const sourceUrl = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
   try {
     const response = await fetch(sourceUrl);
     if (!response.ok) throw new Error(`Overpass query failed: ${response.status}`);
     const payload = (await response.json()) as {
-      elements?: Array<{ tags?: Record<string, string> }>;
+      elements?: Array<{ lat?: number; lon?: number; center?: { lat?: number; lon?: number }; tags?: Record<string, string> }>;
     };
 
     const features = (payload.elements ?? []).reduce<NearbyFeature[]>((items, element) => {
@@ -110,9 +123,12 @@ export const lookupLocationIntel = async (lat?: number, lng?: number): Promise<L
       const category = getCategory(tags);
       if (!category) return items;
       const fallback = category === "school" ? "文教設施" : category === "transit" ? "交通節點" : category === "green" ? "公園綠地" : category === "medical" ? "醫療設施" : "生活機能";
+      const itemLat = element.lat ?? element.center?.lat;
+      const itemLng = element.lon ?? element.center?.lon;
       items.push({
         category,
         name: getDisplayName(tags, fallback),
+        distanceMeters: typeof itemLat === "number" && typeof itemLng === "number" ? Math.round(distanceMeters(lat, lng, itemLat, itemLng)) : undefined,
       });
       return items;
     }, []);
@@ -126,7 +142,9 @@ export const lookupLocationIntel = async (lat?: number, lng?: number): Promise<L
       greenCount: uniqueFeatures.filter((item) => item.category === "green").length,
       retailCount: uniqueFeatures.filter((item) => item.category === "retail").length,
       medicalCount: uniqueFeatures.filter((item) => item.category === "medical").length,
-      features: uniqueFeatures.slice(0, 18),
+      features: uniqueFeatures
+        .sort((a, b) => (a.distanceMeters ?? Number.MAX_SAFE_INTEGER) - (b.distanceMeters ?? Number.MAX_SAFE_INTEGER))
+        .slice(0, 60),
       sourceUrl,
     };
     cache[cacheKey] = intel;

@@ -1,4 +1,4 @@
-import { Database, MapPinned } from "lucide-react";
+import { Calculator, Database, MapPinned, ReceiptText } from "lucide-react";
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { DisclaimerBox } from "../components/DisclaimerBox";
@@ -60,6 +60,24 @@ export const HomePage = () => {
           </div>
         </div>
         <aside className="hero-panel">
+          <div className="hero-panel-top">
+            <span className="eyebrow">AI 即時判讀</span>
+            <h2>{transactionMode === "sale" ? "市場價格、賣方成本與買方決策一次串起來" : "租金區間、坪租與租客房東心理價同步判讀"}</h2>
+            <div className="home-tool-grid">
+              <NavLink to="/estimate/result" className="home-tool-card">
+                <Calculator size={18} />
+                <span>完整結果</span>
+              </NavLink>
+              <NavLink to="/land-value-tax" className="home-tool-card">
+                <ReceiptText size={18} />
+                <span>賣屋稅費</span>
+              </NavLink>
+              <NavLink to="/market" className="home-tool-card">
+                <MapPinned size={18} />
+                <span>區域行情</span>
+              </NavLink>
+            </div>
+          </div>
           <div className="mini-chart-card">
             <div className="mini-chart-title">
               <span>{transactionMode === "sale" ? "周邊成交單價分布" : "租金換算參考分布"}</span>

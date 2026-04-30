@@ -34,11 +34,12 @@ export const AppShell = ({ children }: PropsWithChildren) => {
       <header className="site-header">
         <NavLink to="/" className="brand">
           <span className="brand-mark" aria-hidden="true">
+            <b>AI</b>
             <i />
           </span>
-          <span>
-            <strong>找知道AI估價平臺</strong>
-            <small>{transactionMode === "sale" ? "買賣房屋估價 beta" : "租屋行情 beta"}</small>
+          <span className="brand-copy">
+            <strong><em>找知道</em><span>AI估價平臺</span></strong>
+            <small>房屋估價・租屋行情・決策雷達</small>
           </span>
         </NavLink>
         <nav className="site-nav">

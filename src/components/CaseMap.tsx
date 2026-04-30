@@ -23,15 +23,24 @@ const createCapybaraIcon = (isDragging: boolean, isLanding: boolean) => L.divIco
   html: `
     <div class="capybara-marker" aria-hidden="true">
       <span class="capybara-shadow"></span>
-      <span class="capybara-photo"></span>
+      <span class="capybara-body"></span>
+      <span class="capybara-head"></span>
+      <span class="capybara-ear left"></span>
+      <span class="capybara-ear right"></span>
+      <span class="capybara-eye"></span>
+      <span class="capybara-nose"></span>
+      <span class="capybara-mouth"></span>
+      <span class="capybara-belly"></span>
+      <span class="capybara-leg front"></span>
+      <span class="capybara-leg back"></span>
       <span class="capybara-grab-ring"></span>
       <span class="capybara-motion motion-a"></span>
       <span class="capybara-motion motion-b"></span>
       <span class="capybara-pin"></span>
     </div>
   `,
-  iconSize: [68, 66],
-  iconAnchor: [34, 62],
+  iconSize: [78, 76],
+  iconAnchor: [39, 72],
 });
 
 const Recenter = ({ center }: { center: [number, number] }) => {

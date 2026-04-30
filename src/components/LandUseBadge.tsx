@@ -12,7 +12,7 @@ export const LandUseBadge = ({ lat, lng, compact = false, className }: LandUseBa
   const { info, status } = useLandUseInfo(lat, lng);
   const hasCoordinates = typeof lat === "number" && typeof lng === "number";
   const landUseLabel = info
-    ? [info.primaryName, info.secondaryName, info.detailName].filter(Boolean).join(" / ")
+    ? `政府用途分類：${info.primaryName ?? "未分類"}${info.secondaryName ? `，${info.secondaryName}` : ""}${info.detailName ? ` / ${info.detailName}` : ""}`
     : status === "loading"
       ? "正在查詢最新公開圖資..."
       : hasCoordinates
@@ -30,21 +30,18 @@ export const LandUseBadge = ({ lat, lng, compact = false, className }: LandUseBa
         {info ? <Landmark size={19} /> : <MapPinned size={19} />}
       </div>
       <div>
-        <span>地號與土地用途別</span>
+        <span>土地用途別</span>
         <strong>{landUseLabel}</strong>
         <div className="land-parcel-grid">
           <small>
             <MapPinnedIcon size={13} />
-            地段：{sectionLabel}
-          </small>
-          <small>
-            <Landmark size={13} />
-            地號：{info?.parcelNumber ?? info?.parcelStatus ?? "尚未取得座標"}
+            公開段籍：{sectionLabel}
           </small>
         </div>
         {info ? (
           <small>
             {info.latestYear ? `${info.latestYear}年${info.latestMonth ?? ""}月資料` : "公開圖資"} · {info.sourceName}
+            {info.secondaryName && info.detailName ? ` · 說明：此座標落在「${info.secondaryName}」類別中的「${info.detailName}」使用型態。` : ""}
           </small>
         ) : (
           <small>{hasCoordinates ? "請微調定位點或稍後再試。" : "完成地址或地圖定位後會自動查詢。"}</small>

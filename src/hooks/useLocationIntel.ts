@@ -3,7 +3,7 @@ import { lookupLocationIntel, type LocationIntel } from "../services/locationInt
 
 type IntelStatus = "idle" | "loading" | "ready" | "missing";
 
-export const useLocationIntel = (lat?: number, lng?: number) => {
+export const useLocationIntel = (lat?: number, lng?: number, radiusMeters = 1200) => {
   const [intel, setIntel] = useState<LocationIntel | undefined>();
   const [status, setStatus] = useState<IntelStatus>("idle");
 
@@ -16,7 +16,7 @@ export const useLocationIntel = (lat?: number, lng?: number) => {
     }
 
     setStatus("loading");
-    lookupLocationIntel(lat, lng)
+    lookupLocationIntel(lat, lng, radiusMeters)
       .then((nextIntel) => {
         if (cancelled) return;
         setIntel(nextIntel);
@@ -31,7 +31,7 @@ export const useLocationIntel = (lat?: number, lng?: number) => {
     return () => {
       cancelled = true;
     };
-  }, [lat, lng]);
+  }, [lat, lng, radiusMeters]);
 
   return { intel, status };
 };

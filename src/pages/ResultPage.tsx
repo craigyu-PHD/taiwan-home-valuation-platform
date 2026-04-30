@@ -3,6 +3,7 @@ import { BankWebsitePanel } from "../components/BankWebsitePanel";
 import { CaseMap } from "../components/CaseMap";
 import { DisclaimerBox } from "../components/DisclaimerBox";
 import { ResultSummary } from "../components/ResultSummary";
+import { SellerTaxCard } from "../components/SellerTaxCard";
 import { TransactionList } from "../components/TransactionList";
 import { useEstimate } from "../context/EstimateContext";
 import { DATA_SOURCES } from "../data/demoTransactions";
@@ -100,6 +101,7 @@ export const ResultPage = () => {
         </aside>
       </section>
 
+      <SellerTaxCard />
       <BankWebsitePanel />
       <DisclaimerBox />
     </div>

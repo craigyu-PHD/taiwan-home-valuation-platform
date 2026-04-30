@@ -6,8 +6,6 @@ export interface LandUseInfo {
   sectionCode?: string;
   sectionName?: string;
   villageName?: string;
-  parcelNumber?: string;
-  parcelStatus?: string;
   year?: string;
   latestYear?: string;
   latestMonth?: string;
@@ -25,7 +23,7 @@ export interface LandUseInfo {
 const CACHE_KEY = "taiwan-valuation-land-use-cache-v2";
 const SOURCE_NAME = "內政部國土測繪中心 國土利用現況調查";
 const CADASTRE_SOURCE_NAME = "內政部國土測繪中心 段籍位置查詢";
-const SOURCE_NOTE = "土地用途別由座標查詢國土利用現況資料；段籍由公開座標查詢取得。完整宗地地號屬地籍 API GetLandNO/CadasMapPointQuery 服務，正式上線需依法申請授權，不得以未授權方式取得。";
+const SOURCE_NOTE = "土地用途別由座標查詢國土利用現況資料；段籍由公開座標查詢取得。完整宗地標示涉及地籍授權服務，免費公開版不顯示。";
 
 type CacheMap = Record<string, LandUseInfo | undefined>;
 
@@ -92,9 +90,6 @@ export const lookupLandUse = async (lat?: number, lng?: number): Promise<LandUse
       sectionCode: cadastreItem ? readTag(cadastreItem, "sectCode") : undefined,
       sectionName: cadastreItem ? readTag(cadastreItem, "sectName") : undefined,
       villageName: cadastreItem ? readTag(cadastreItem, "villageName") : undefined,
-      parcelStatus: cadastreItem
-        ? "已取得公開段籍；完整地號需接入經授權地籍 API。"
-        : "公開段籍查詢暫時無回應。",
       year: readTag(item, "YEAR"),
       latestYear: readTag(item, "LYEAR"),
       latestMonth: readTag(item, "LMONTH"),
