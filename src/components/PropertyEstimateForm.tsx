@@ -55,6 +55,20 @@ export const PropertyEstimateForm = ({
     }
   }, [district, districts]);
 
+  useEffect(() => {
+    if (propertyInput.city) setCity(propertyInput.city);
+    if (propertyInput.district) setDistrict(propertyInput.district);
+    if (propertyInput.road) setRoad(propertyInput.road.replace(/[一二三四五六七八九十0-9０-９]+段$/, ""));
+    if (propertyInput.communityName) setKeyword(propertyInput.communityName);
+    if (propertyInput.floor !== undefined) setFloorText(String(propertyInput.floor));
+  }, [
+    propertyInput.city,
+    propertyInput.district,
+    propertyInput.road,
+    propertyInput.communityName,
+    propertyInput.floor,
+  ]);
+
   const buildAddress = () => {
     if (searchMode === "區域搜尋") {
       return [city, district, keyword].filter(Boolean).join("");

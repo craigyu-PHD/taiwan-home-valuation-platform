@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Gauge, Lightbulb, Scale, ShieldCheck, TrendingUp } from "lucide-react";
+import { AlertTriangle, Gauge, Handshake, Lightbulb, Scale, ShieldCheck, TrendingUp, UserRound } from "lucide-react";
 import type { CSSProperties } from "react";
 import { ResultSummary } from "../components/ResultSummary";
 import { useEstimate } from "../context/EstimateContext";
@@ -25,6 +25,20 @@ export const DecisionRadarPage = () => {
   const conservativeOffer = unitMedian * area * (confidence >= 75 ? 0.955 : confidence >= 55 ? 0.93 : 0.88);
   const fairOffer = unitMedian * area;
   const ceilingOffer = unitMedian * area * (confidence >= 75 ? 1.035 : confidence >= 55 ? 1.02 : 0.98);
+  const buyerMindPrice = fairOffer * (riskScore >= 65 ? 0.9 : riskScore >= 38 ? 0.94 : 0.98);
+  const sellerMindPrice = fairOffer * (confidence >= 75 ? 1.08 : confidence >= 55 ? 1.06 : 1.03);
+  const overlapLow = Math.min(Math.max(buyerMindPrice, conservativeOffer), ceilingOffer);
+  const overlapHigh = Math.max(Math.min(sellerMindPrice, ceilingOffer), overlapLow);
+  const buyerReasons = [
+    confidence < 55 ? "買方會把資料信心不足轉成安全折扣。" : "買方可接受以市場中位價附近作為談判起點。",
+    spread > 18 ? "價格區間偏寬，買方通常會壓低出價以吸收不確定性。" : "價格區間集中，買方較難用資料離散作為大幅議價理由。",
+    propertyInput.condition === "未提供" ? "屋況未明會讓買方預留裝修與檢修預算。" : `屋況標示為「${propertyInput.condition}」，買方會依此調整心理價。`,
+  ];
+  const sellerReasons = [
+    result.recentComparableCount >= 6 ? "賣方會引用近期成交密集度支撐開價。" : "賣方可用區域稀缺性主張開價，但說服力有限。",
+    result.nearestDistanceMeters && result.nearestDistanceMeters <= 800 ? "附近案例距離近，賣方較容易主張物件具備市場支撐。" : "附近案例距離較遠，賣方開價需要更多同社區或同路段佐證。",
+    propertyInput.hasParking ? "含車位會提高賣方心理價格，尤其在車位供給有限區域。" : "未含車位時，賣方開價上緣較容易被買方挑戰。",
+  ];
   const negotiationLevers = [
     result.recentComparableCount < 3 ? "近 12 個月成交不足，可要求更多屋況或成交佐證。" : "近期成交樣本足夠，議價應聚焦在物件條件差異。",
     result.nearestDistanceMeters && result.nearestDistanceMeters > 1000
@@ -96,6 +110,46 @@ export const DecisionRadarPage = () => {
         </article>
       </section>
 
+      <section className="mind-price-grid">
+        <article className="mind-card buyer">
+          <div className="decision-card-title">
+            <UserRound size={21} />
+            <h2>買家評估</h2>
+          </div>
+          <strong>{formatWan(buyerMindPrice)}</strong>
+          <span>買方心中合理出價</span>
+          <ul>
+            {buyerReasons.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </article>
+        <article className="mind-card seller">
+          <div className="decision-card-title">
+            <Handshake size={21} />
+            <h2>賣家評估</h2>
+          </div>
+          <strong>{formatWan(sellerMindPrice)}</strong>
+          <span>賣方心中可守價格</span>
+          <ul>
+            {sellerReasons.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </article>
+        <article className="mind-card overlap">
+          <div className="decision-card-title">
+            <Scale size={21} />
+            <h2>成交交會帶</h2>
+          </div>
+          <strong>
+            {formatWan(overlapLow)} - {formatWan(overlapHigh)}
+          </strong>
+          <span>雙方較可能進入談判的價格帶</span>
+          <p>如果屋主開價高於交會帶，建議用周邊案例、屋況折扣與資料信心作為談判依據。</p>
+        </article>
+      </section>
+
       <section className="decision-grid">
         <article className="decision-card">
           <div className="decision-card-title">
@@ -119,20 +173,6 @@ export const DecisionRadarPage = () => {
                 <span>{item.label}</span>
                 <strong>{item.value}</strong>
               </div>
-            ))}
-          </div>
-        </article>
-        <article className="decision-card">
-          <div className="decision-card-title">
-            <CheckCircle2 size={20} />
-            <h2>看屋前檢核</h2>
-          </div>
-          <div className="checklist-grid">
-            {["權狀坪數與謄本", "車位是否獨立產權", "漏水與管線紀錄", "管委會重大修繕", "實價登錄同棟案例", "特殊產權與使用限制"].map((item) => (
-              <label key={item}>
-                <input type="checkbox" />
-                <span>{item}</span>
-              </label>
             ))}
           </div>
         </article>

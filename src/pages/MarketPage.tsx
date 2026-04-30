@@ -1,6 +1,7 @@
 import { BarChart3, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { CaseMap } from "../components/CaseMap";
+import { useEstimate } from "../context/EstimateContext";
 import { demoTransactions } from "../data/demoTransactions";
 import { taiwanAdmin, taiwanCities } from "../data/taiwanAdmin";
 import { findTownByPoint, getBoundaryCenter, getTownBoundary, type BoundaryFeature } from "../services/boundaries";
@@ -9,6 +10,7 @@ import { getMarketStats } from "../services/valuation";
 import { formatDate, formatUnitWan } from "../utils/format";
 
 export const MarketPage = () => {
+  const { propertyInput, setSelectedLocation } = useEstimate();
   const [city, setCity] = useState("臺北市");
   const districts = useMemo(
     () => taiwanAdmin[city as keyof typeof taiwanAdmin] ?? [],
@@ -20,6 +22,10 @@ export const MarketPage = () => {
   const [locatorStatus, setLocatorStatus] = useState("選擇行政區，或拖曳小人到地圖上任一位置切換區域行情。");
   const stats = getMarketStats(city, district);
   const mapCases = demoTransactions.filter((item) => item.city === city && item.district === district);
+  useEffect(() => {
+    if (propertyInput.city) setCity(propertyInput.city);
+    if (propertyInput.district) setDistrict(propertyInput.district);
+  }, [propertyInput.city, propertyInput.district]);
   useEffect(() => {
     if (!districts.includes(district as never)) setDistrict(districts[0] ?? "");
   }, [district, districts]);
@@ -40,6 +46,17 @@ export const MarketPage = () => {
     setCity(town.properties.city);
     setDistrict(town.properties.district);
     setBoundary(town);
+    setSelectedLocation({
+      id: `market-${lat}-${lng}`,
+      label: reverse?.label ?? `${town.properties.city}${town.properties.district} 行情選點`,
+      city: town.properties.city,
+      district: town.properties.district,
+      road: reverse?.road,
+      lat,
+      lng,
+      confidence: reverse ? 0.86 : 0.78,
+      source: "manual",
+    });
     setLocatorStatus(
       reverse?.label
         ? `已依小人位置切換到 ${town.properties.city}${town.properties.district}，參考地址：${reverse.label}`

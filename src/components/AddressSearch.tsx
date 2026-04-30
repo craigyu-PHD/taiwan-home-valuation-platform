@@ -1,5 +1,5 @@
 import { Loader2, LocateFixed, MapPin, Search } from "lucide-react";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useEstimate } from "../context/EstimateContext";
 import { searchAddress } from "../services/geocode";
@@ -18,6 +18,10 @@ export const AddressSearch = ({ compact, buttonLabel = "立即估價", onSelect 
   const [loading, setLoading] = useState(false);
   const [candidates, setCandidates] = useState<LocationCandidate[]>([]);
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    setQuery(propertyInput.address);
+  }, [propertyInput.address]);
 
   const selectCandidate = (candidate: LocationCandidate) => {
     setSelectedLocation(candidate);
