@@ -1,0 +1,78 @@
+import {
+  createContext,
+  type PropsWithChildren,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
+import type { LocationCandidate, PropertyInput, ValuationResult } from "../types";
+import { createDefaultInput, estimateProperty } from "../services/valuation";
+
+interface EstimateContextValue {
+  propertyInput: PropertyInput;
+  selectedLocation?: LocationCandidate;
+  valuation?: ValuationResult;
+  setSelectedLocation: (candidate: LocationCandidate) => void;
+  updatePropertyInput: (updates: Partial<PropertyInput>) => void;
+  runValuation: (updates?: Partial<PropertyInput>) => ValuationResult;
+}
+
+const EstimateContext = createContext<EstimateContextValue | undefined>(undefined);
+
+export const EstimateProvider = ({ children }: PropsWithChildren) => {
+  const [propertyInput, setPropertyInput] = useState<PropertyInput>(() => createDefaultInput());
+  const [selectedLocation, setSelectedLocationState] = useState<LocationCandidate | undefined>({
+    id: "default",
+    label: "臺北市信義區信義路五段 7 號（台北 101 周邊）",
+    city: "臺北市",
+    district: "信義區",
+    road: "信義路五段",
+    lat: 25.033964,
+    lng: 121.564468,
+    confidence: 0.9,
+    source: "local",
+  });
+  const [valuation, setValuation] = useState<ValuationResult | undefined>(() =>
+    estimateProperty(createDefaultInput()),
+  );
+
+  const value = useMemo<EstimateContextValue>(
+    () => ({
+      propertyInput,
+      selectedLocation,
+      valuation,
+      setSelectedLocation: (candidate) => {
+        setSelectedLocationState(candidate);
+        setPropertyInput((current) => ({
+          ...current,
+          address: candidate.label,
+          city: candidate.city,
+          district: candidate.district,
+          road: candidate.road,
+          lat: candidate.lat,
+          lng: candidate.lng,
+          locationConfidence: candidate.confidence,
+        }));
+      },
+      updatePropertyInput: (updates) => {
+        setPropertyInput((current) => ({ ...current, ...updates }));
+      },
+      runValuation: (updates) => {
+        const next = { ...propertyInput, ...updates };
+        setPropertyInput(next);
+        const result = estimateProperty(next);
+        setValuation(result);
+        return result;
+      },
+    }),
+    [propertyInput, selectedLocation, valuation],
+  );
+
+  return <EstimateContext.Provider value={value}>{children}</EstimateContext.Provider>;
+};
+
+export const useEstimate = () => {
+  const context = useContext(EstimateContext);
+  if (!context) throw new Error("useEstimate must be used within EstimateProvider");
+  return context;
+};

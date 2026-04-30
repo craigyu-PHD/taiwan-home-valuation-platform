@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.npm-cache/
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+public/data/moi-current-sample.json
+public/data/moi-source.zip
+.DS_Store
