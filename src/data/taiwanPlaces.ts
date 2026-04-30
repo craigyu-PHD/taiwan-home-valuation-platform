@@ -2,6 +2,17 @@ import type { LocationCandidate } from "../types";
 
 export const taiwanPlaceCandidates: LocationCandidate[] = [
   {
+    id: "local-taoyuan-guodu",
+    label: "桃園市桃園區莊敬路二段 103 號（國都花園社區）",
+    city: "桃園市",
+    district: "桃園區",
+    road: "莊敬路二段",
+    lat: 25.02247,
+    lng: 121.29303,
+    confidence: 0.9,
+    source: "local",
+  },
+  {
     id: "local-tpe-101",
     label: "臺北市信義區信義路五段 7 號（台北 101 周邊）",
     city: "臺北市",

@@ -13,12 +13,12 @@ import { formatDate, formatRentPerPing, formatTwd, formatUnitWan } from "../util
 
 export const MarketPage = () => {
   const { propertyInput, setSelectedLocation, transactionMode } = useEstimate();
-  const [city, setCity] = useState("臺北市");
+  const [city, setCity] = useState("桃園市");
   const districts = useMemo(
     () => taiwanAdmin[city as keyof typeof taiwanAdmin] ?? [],
     [city],
   );
-  const [district, setDistrict] = useState("信義區");
+  const [district, setDistrict] = useState("桃園區");
   const [boundary, setBoundary] = useState<BoundaryFeature | undefined>();
   const [pickedPoint, setPickedPoint] = useState<[number, number] | undefined>();
   const [locatorStatus, setLocatorStatus] = useState("選擇行政區，或拖曳小人到地圖上任一位置切換區域行情。");

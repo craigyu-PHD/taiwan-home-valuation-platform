@@ -2,7 +2,6 @@ import {
   BarChart3,
   Gauge,
   Home,
-  Info,
   KeyRound,
   Map,
   ReceiptText,
@@ -20,7 +19,6 @@ const navItems = [
   { to: "/market", label: "區域行情", icon: BarChart3, modeAware: true },
   { to: "/decision-radar", label: "決策雷達", icon: Gauge, modeAware: true },
   { to: "/land-value-tax", label: "稅費試算", icon: ReceiptText },
-  { to: "/method", label: "方法與聲明", icon: Info },
 ];
 
 export const AppShell = ({ children }: PropsWithChildren) => {
@@ -78,6 +76,9 @@ export const AppShell = ({ children }: PropsWithChildren) => {
       </div>
       <main>{children}</main>
       <footer className="site-footer">
+        <NavLink className="footer-method-link" to="/method">
+          方法與免責聲明
+        </NavLink>
         <span className="footer-data-note">{DEMO_DATA_NOTICE}</span>
         <span>資料來源規劃：內政部實價登錄 Open Data、國土測繪中心土地利用、OpenStreetMap / Leaflet / Overpass / Nominatim。</span>
         <span>本平台僅供市場行情參考，不構成正式不動產估價報告、租賃鑑價或成交/出租保證。</span>

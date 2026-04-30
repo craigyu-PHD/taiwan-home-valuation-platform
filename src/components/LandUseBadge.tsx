@@ -30,24 +30,24 @@ export const LandUseBadge = ({ lat, lng, compact = false, className }: LandUseBa
         {info ? <Landmark size={19} /> : <MapPinned size={19} />}
       </div>
       <div>
-        <span>土地用途別</span>
+        <span>土地使用現況（免費公開圖資）</span>
         <strong>{landUseLabel}</strong>
         {info && (
           <div className="land-use-detail-grid">
             <div>
-              <span>政府大類</span>
+              <span>國土利用大類</span>
               <strong>{info.primaryName ?? "未標示"}</strong>
             </div>
             <div>
-              <span>用途類別</span>
+              <span>國土利用中類</span>
               <strong>{info.secondaryName ?? "未標示"}</strong>
             </div>
             <div>
-              <span>使用細項</span>
+              <span>使用現況細項</span>
               <strong>{info.detailName ?? "未標示"}</strong>
             </div>
             <div>
-              <span>公開段籍</span>
+              <span>行政段籍位置</span>
               <strong>{sectionLabel}</strong>
             </div>
           </div>
@@ -63,7 +63,7 @@ export const LandUseBadge = ({ lat, lng, compact = false, className }: LandUseBa
         {info ? (
           <small>
             {info.latestYear ? `${info.latestYear}年${info.latestMonth ?? ""}月資料` : "公開圖資"} · {info.sourceName}
-            {info.secondaryName && info.detailName ? ` · 此座標落在「${info.secondaryName}」類別中的「${info.detailName}」使用型態。完整地號需授權地籍服務，本系統不以免費資料硬推。` : ""}
+            {info.secondaryName && info.detailName ? ` · 此座標落在「${info.secondaryName}」類別中的「${info.detailName}」使用現況。免費公開查詢不含完整地號，完整宗地請以謄本或授權地籍服務確認。` : ""}
           </small>
         ) : (
           <small>{hasCoordinates ? "請微調定位點或稍後再試。" : "完成地址或地圖定位後會自動查詢。"}</small>

@@ -218,6 +218,7 @@ const buildDecisionSignals = (
 export const DecisionRadarPage = () => {
   const { propertyInput, selectedLocation, valuation, rentalValuation, transactionMode } = useEstimate();
   const [openIntelGroup, setOpenIntelGroup] = useState<NearbyFeature["category"] | undefined>("transit");
+  const [openSideIntelKey, setOpenSideIntelKey] = useState<string | undefined>("buyer-transit");
   const result = valuation ?? estimateProperty(propertyInput);
   const rentResult = rentalValuation ?? estimateRental(propertyInput);
   const { info: landUse, status: landUseStatus } = useLandUseInfo(propertyInput.lat, propertyInput.lng);
@@ -341,6 +342,51 @@ export const DecisionRadarPage = () => {
     </>
   );
 
+  const renderSideIntelAccordion = (side: "buyer" | "seller", title: string) => (
+    <div className="side-intel-accordion">
+      <div className="side-intel-heading">
+        <strong>{title}</strong>
+        <span>方圓 300 公尺公開節點，單次只展開一類。</span>
+      </div>
+      {featureGroups.map((group) => {
+        const Icon = iconMap[group.icon];
+        const key = `${side}-${group.category}`;
+        const isOpen = openSideIntelKey === key;
+        return (
+          <article key={key} className={`side-intel-group ${isOpen ? "open" : ""}`}>
+            <button
+              type="button"
+              onClick={() => setOpenSideIntelKey((current) => (current === key ? undefined : key))}
+            >
+              <span>
+                <Icon size={16} />
+                {group.label}
+              </span>
+              <strong>{intelStatus === "loading" ? "..." : `${group.count} 個`}</strong>
+            </button>
+            {isOpen && (
+              <ul>
+                {group.items.length ? (
+                  group.items.map((item, index) => (
+                    <li key={`${key}-${item.name}-${index}`}>
+                      <span>{item.name}</span>
+                      <small>{item.distanceMeters !== undefined ? formatDistance(item.distanceMeters) : "距離待查"}</small>
+                    </li>
+                  ))
+                ) : (
+                  <li>
+                    <span>300 公尺內暫無此類公開節點</span>
+                    <small>建議實地確認</small>
+                  </li>
+                )}
+              </ul>
+            )}
+          </article>
+        );
+      })}
+    </div>
+  );
+
   if (transactionMode === "rent") {
     const tenantTarget = rentResult.monthlyMedianTwd ? rentResult.monthlyMedianTwd * (riskScore >= 55 ? 0.92 : 0.97) : undefined;
     const landlordTarget = rentResult.monthlyMedianTwd ? rentResult.monthlyMedianTwd * (confidence >= 65 ? 1.08 : 1.03) : undefined;
@@ -403,6 +449,7 @@ export const DecisionRadarPage = () => {
               <p><strong>租客心理：</strong>先看總月租是否壓住現金流，再用屋況、家具、管理費與交通距離要求折扣。</p>
               <p><strong>合理策略：</strong>把可接受租金上限與押金、租期、修繕責任一起談，不只談月租。</p>
             </div>
+            {renderSideIntelAccordion("buyer", "租客周邊查證清單")}
           </article>
           <article className="side-evaluation-card seller">
             <div className="side-card-head">
@@ -425,6 +472,7 @@ export const DecisionRadarPage = () => {
               <p><strong>房東心理：</strong>會把空置成本、管理麻煩與租客品質納入租金底線，條件越乾淨越能守價。</p>
               <p><strong>合理策略：</strong>用交通、機能、家具與修繕紀錄支撐租金，必要時用長租折扣換穩定性。</p>
             </div>
+            {renderSideIntelAccordion("seller", "房東周邊支撐清單")}
           </article>
         </section>
         <RentalSummary result={rentResult} compact />
@@ -518,6 +566,7 @@ export const DecisionRadarPage = () => {
             <p><strong>買方邏輯：</strong>先用成交資料確認不買貴，再把屋況、貸款、特殊產權與未來轉手風險折回價格。</p>
             <p><strong>出價策略：</strong>低點從 {formatWan(buyerOpening)} 附近測試，目標落在 {formatWan(buyerMindPrice)}，上限不超過 {formatWan(buyerCeiling)}。</p>
           </div>
+          {renderSideIntelAccordion("buyer", "買方 300 公尺查證清單")}
           <ul className="decision-factor-list">{renderSignalList("buyer")}</ul>
         </article>
 
@@ -543,14 +592,15 @@ export const DecisionRadarPage = () => {
             <p><strong>賣方邏輯：</strong>先用最佳報價價位錨定理想價格，再用交通、生活機能與近期成交證據防守價格。</p>
             <p><strong>守價策略：</strong>MPP 可抓 {formatWan(sellerMpp)}，但若缺少同社區或近距離成交，應回到交會談判帶。</p>
           </div>
+          {renderSideIntelAccordion("seller", "賣方 300 公尺溢價支撐清單")}
           <ul className="decision-factor-list">{renderSignalList("seller")}</ul>
         </article>
       </section>
 
-      <section className="psychology-price-card">
+      <section className="psychology-price-card decision-brief-card">
         <div className="decision-card-title">
           <Scale size={20} />
-          <h2>合理價格參考區間</h2>
+          <h2>合理價格參考區間與議價技巧</h2>
         </div>
         <p>
           綜合模型中位價、買方風險折扣與賣方溢價期待後，雙方較可能進入實質談判的交會帶為
@@ -558,52 +608,41 @@ export const DecisionRadarPage = () => {
           買方心中合理價約 {formatWan(buyerMindPrice)}；賣方可守價約 {formatWan(sellerMindPrice)}。
           若開價高於 {formatWan(ceilingOffer)} 且缺少近期成交或機能證據，系統會視為高風險溢價。
         </p>
-      </section>
-
-      <section className="decision-price-band">
-        <article>
-          <ShieldCheck size={22} />
-          <span>買方開價起點</span>
-          <strong>{formatWan(buyerOpening)}</strong>
-          <p>用於包圍法的低點，保留屋況、貸款與不確定性折扣。</p>
-        </article>
-        <article className="featured">
-          <Scale size={22} />
-          <span>交會談判帶</span>
-          <strong>
-            {formatWan(overlapLow)} - {formatWan(overlapHigh)}
-          </strong>
-          <p>此區間不是保證成交價，而是買賣雙方心理價重疊後的參考帶。</p>
-        </article>
-        <article>
-          <Target size={22} />
-          <span>賣方 MPP</span>
-          <strong>{formatWan(sellerMpp)}</strong>
-          <p>賣方理想開價錨點，需由成交、機能與稀缺性支撐。</p>
-        </article>
-      </section>
-
-      <ResultSummary result={result} compact />
-
-      <section className="strategy-synthesis-card">
-        <div className="decision-card-title">
-          <FileText size={20} />
-          <h2>議價技巧、後臺判斷標準與判讀摘要</h2>
+        <div className="decision-price-band embedded">
+          <article>
+            <ShieldCheck size={22} />
+            <span>買方開價起點</span>
+            <strong>{formatWan(buyerOpening)}</strong>
+            <p>包圍法低點：保留屋況、貸款與不確定性折扣。</p>
+          </article>
+          <article className="featured">
+            <Scale size={22} />
+            <span>交會談判帶</span>
+            <strong>{formatWan(overlapLow)} - {formatWan(overlapHigh)}</strong>
+            <p>不是保證成交價，而是買賣雙方心理價重疊後的談判帶。</p>
+          </article>
+          <article>
+            <Target size={22} />
+            <span>賣方 MPP</span>
+            <strong>{formatWan(sellerMpp)}</strong>
+            <p>理想開價錨點，需由成交、機能與稀缺性支撐。</p>
+          </article>
         </div>
         <div className="strategy-synthesis-grid">
           <p>
             <strong>最佳報價價位 MPP：</strong>
-            賣方可從 {formatWan(sellerMpp)} 作為理想錨點，但必須用土地用途、交通文教與可比成交支撐；
-            若證據不足，價格應回到交會談判帶。
+            賣方可從 {formatWan(sellerMpp)} 作為理想錨點，保留讓步空間；若缺少同社區、同路段或近 12 個月案例，
+            應主動回到交會談判帶，避免開價故事被買方用資料打穿。
           </p>
           <p>
             <strong>包圍法：</strong>
             買方可用 {formatWan(buyerOpening)} 開始，目標落在 {formatWan(buyerMindPrice)} 附近；
-            若賣方先開高價，回報價差應以交會帶中線為中心。
+            若賣方先開高價，回報價差應以交會帶中線為中心，讓談判逐步收斂到可成交的數據區間。
           </p>
           <p>
-            <strong>拒絕提升價值：</strong>
-            當開價高於 {formatWan(ceilingOffer)}，買方應拒絕第一次報價並要求屋況、產權、貸款與近期成交證據。
+            <strong>拒絕與價值提升：</strong>
+            當開價高於 {formatWan(ceilingOffer)}，買方應拒絕第一次報價並要求屋況、產權、貸款與近期成交證據；
+            賣方若要守價，必須把 300 公尺機能、土地使用現況、維護紀錄與稀缺性整理成可驗證清單。
           </p>
           <p>
             <strong>數據佐證：</strong>
@@ -612,6 +651,8 @@ export const DecisionRadarPage = () => {
           </p>
         </div>
       </section>
+
+      <ResultSummary result={result} compact />
     </div>
   );
 };
