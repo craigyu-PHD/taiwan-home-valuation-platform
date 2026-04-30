@@ -1,34 +1,39 @@
-import { BarChart3, CheckCircle2, MapPinned, ShieldAlert } from "lucide-react";
+import { BarChart3, CheckCircle2, Database, MapPinned, ShieldAlert } from "lucide-react";
+import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { DisclaimerBox } from "../components/DisclaimerBox";
 import { PropertyEstimateForm } from "../components/PropertyEstimateForm";
+import { ResultSummary } from "../components/ResultSummary";
+import { TransactionList } from "../components/TransactionList";
 import { useEstimate } from "../context/EstimateContext";
 import { formatUnitWan, formatWan } from "../utils/format";
 
 export const HomePage = () => {
   const { valuation } = useEstimate();
+  const [hasInlineResult, setHasInlineResult] = useState(false);
   const chartCases = valuation?.casesUsed.slice(0, 5) ?? [];
   const maxUnit = Math.max(...chartCases.map((item) => item.unitPriceWan), 1);
   const barColors = ["#14b8a6", "#2563eb", "#f59e0b", "#ef4444", "#8b5cf6"];
 
   return (
     <div className="page home-page">
-      <section className="principle-grid home-principles">
-        <article>
+      <section className="home-standard-strip">
+        <div className="standard-title">
+          <Database size={18} />
+          <strong>估價標準</strong>
+        </div>
+        <div>
           <CheckCircle2 size={21} />
-          <h2>以成交資料為主</h2>
-          <p>優先採用同社區、同路段、近期且條件相近的實價登錄案例。</p>
-        </article>
-        <article>
+          <span>以實價登錄成交為主</span>
+        </div>
+        <div>
           <BarChart3 size={21} />
-          <h2>輸出區間而非單點</h2>
-          <p>價格區間會反映屋況未知、樣本差異、交易時間與模型不確定性。</p>
-        </article>
-        <article>
+          <span>輸出合理價格區間</span>
+        </div>
+        <div>
           <ShieldAlert size={21} />
-          <h2>資料不足會拒估</h2>
-          <p>特殊產權、交易稀少或樣本不足時，不強行給出確定價格。</p>
-        </article>
+          <span>資料不足時降低信心或拒估</span>
+        </div>
       </section>
 
       <section className="home-hero">
@@ -39,7 +44,7 @@ export const HomePage = () => {
             輸入臺灣任一地址或在地圖選點，系統會依公開實價登錄與周邊可比成交，
             產生價格區間、信心分數、估價依據與限制說明。
           </p>
-          <PropertyEstimateForm />
+          <PropertyEstimateForm stayOnPage onEstimated={() => setHasInlineResult(true)} />
           <div className="hero-actions">
             <NavLink className="secondary-button" to="/estimate/map">
               <MapPinned size={18} />
@@ -84,6 +89,18 @@ export const HomePage = () => {
           </div>
         </aside>
       </section>
+
+      {hasInlineResult && valuation && (
+        <section className="home-inline-result">
+          <div className="section-heading compact-heading">
+            <span className="eyebrow">同頁估價結果</span>
+            <h2>地址估價已完成</h2>
+            <p>下方結果依目前地址與進階條件即時計算，不需離開首頁。</p>
+          </div>
+          <ResultSummary result={valuation} compact />
+          <TransactionList cases={valuation.casesUsed.slice(0, 5)} />
+        </section>
+      )}
 
       <DisclaimerBox />
 

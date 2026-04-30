@@ -15,13 +15,14 @@ import { useEstimate } from "../context/EstimateContext";
 import { taiwanAdmin, taiwanCities } from "../data/taiwanAdmin";
 import { getBoundaryCenter, getTownBoundary } from "../services/boundaries";
 import { propertyTypes, specialFactors } from "../services/valuation";
-import type { LocationCandidate, ParkingType, PropertyInput, SpecialFactor } from "../types";
+import type { LocationCandidate, ParkingType, PropertyInput, SpecialFactor, ValuationResult } from "../types";
 import { normalizeAddressText } from "../utils/addressNormalize";
 
 interface PropertyEstimateFormProps {
   compact?: boolean;
   submitLabel?: string;
   stayOnPage?: boolean;
+  onEstimated?: (result: ValuationResult) => void;
 }
 
 const updateNumber = (value: string) => (value === "" ? undefined : Number(value));
@@ -30,6 +31,7 @@ export const PropertyEstimateForm = ({
   compact = false,
   submitLabel = "產生估價",
   stayOnPage = false,
+  onEstimated,
 }: PropertyEstimateFormProps) => {
   const navigate = useNavigate();
   const { propertyInput, setSelectedLocation, updatePropertyInput, runValuation } = useEstimate();
@@ -101,7 +103,7 @@ export const PropertyEstimateForm = ({
 
   const submit = async () => {
     const candidate = await syncAddress();
-    runValuation({
+    const result = runValuation({
       address: candidate.label,
       city: candidate.city,
       district: candidate.district,
@@ -111,6 +113,7 @@ export const PropertyEstimateForm = ({
       locationConfidence: candidate.confidence,
       floor: updateNumber(floorText),
     });
+    onEstimated?.(result);
     if (!stayOnPage) navigate("/estimate/result");
   };
 

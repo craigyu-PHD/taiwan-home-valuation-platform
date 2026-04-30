@@ -3,7 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import { CaseMap } from "../components/CaseMap";
 import { demoTransactions } from "../data/demoTransactions";
 import { taiwanAdmin, taiwanCities } from "../data/taiwanAdmin";
-import { getBoundaryCenter, getTownBoundary, type BoundaryFeature } from "../services/boundaries";
+import { findTownByPoint, getBoundaryCenter, getTownBoundary, type BoundaryFeature } from "../services/boundaries";
+import { reverseGeocodePoint } from "../services/geocode";
 import { getMarketStats } from "../services/valuation";
 import { formatDate, formatUnitWan } from "../utils/format";
 
@@ -15,6 +16,8 @@ export const MarketPage = () => {
   );
   const [district, setDistrict] = useState("信義區");
   const [boundary, setBoundary] = useState<BoundaryFeature | undefined>();
+  const [pickedPoint, setPickedPoint] = useState<[number, number] | undefined>();
+  const [locatorStatus, setLocatorStatus] = useState("選擇行政區，或拖曳小人到地圖上任一位置切換區域行情。");
   const stats = getMarketStats(city, district);
   const mapCases = demoTransactions.filter((item) => item.city === city && item.district === district);
   useEffect(() => {
@@ -24,7 +27,25 @@ export const MarketPage = () => {
     getTownBoundary(city, district).then(setBoundary).catch(() => setBoundary(undefined));
   }, [city, district]);
   const mapCenter: [number, number] =
-    getBoundaryCenter(boundary?.geometry) ?? [mapCases[0]?.lat ?? 23.8, mapCases[0]?.lng ?? 121.0];
+    pickedPoint ?? getBoundaryCenter(boundary?.geometry) ?? [mapCases[0]?.lat ?? 23.8, mapCases[0]?.lng ?? 121.0];
+
+  const pickMarketPoint = async (lat: number, lng: number) => {
+    setPickedPoint([lat, lng]);
+    const town = await findTownByPoint(lat, lng).catch(() => undefined);
+    const reverse = await reverseGeocodePoint(lat, lng).catch(() => undefined);
+    if (!town) {
+      setLocatorStatus("此位置無法命中行政區邊界，請靠近臺灣本島或離島行政區內再試一次。");
+      return;
+    }
+    setCity(town.properties.city);
+    setDistrict(town.properties.district);
+    setBoundary(town);
+    setLocatorStatus(
+      reverse?.label
+        ? `已依小人位置切換到 ${town.properties.city}${town.properties.district}，參考地址：${reverse.label}`
+        : `已依小人位置切換到 ${town.properties.city}${town.properties.district}。`,
+    );
+  };
 
   return (
     <div className="page market-page">
@@ -45,6 +66,7 @@ export const MarketPage = () => {
               const nextDistrict =
                 taiwanAdmin[nextCity as keyof typeof taiwanAdmin]?.[0] ?? "";
               setDistrict(nextDistrict);
+              setPickedPoint(undefined);
             }}
           >
             {taiwanCities.map((item) => (
@@ -54,7 +76,13 @@ export const MarketPage = () => {
         </label>
         <label>
           行政區
-          <select value={district} onChange={(event) => setDistrict(event.target.value)}>
+          <select
+            value={district}
+            onChange={(event) => {
+              setDistrict(event.target.value);
+              setPickedPoint(undefined);
+            }}
+          >
             {districts.map((item) => (
               <option key={item}>{item}</option>
             ))}
@@ -64,12 +92,14 @@ export const MarketPage = () => {
           <Search size={18} />
           查詢行情
         </button>
+        <p className="market-locator-status">{locatorStatus}</p>
       </section>
 
       <section className="market-map-section">
         <CaseMap
           center={mapCenter}
           cases={mapCases}
+          onPick={pickMarketPoint}
           highlightGeometry={boundary?.geometry}
           highlightLabel={boundary ? `${boundary.properties.city}${boundary.properties.district}` : undefined}
           className="market-map"

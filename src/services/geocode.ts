@@ -3,10 +3,12 @@ import type { LocationCandidate } from "../types";
 import { getAddressSearchVariants, normalizeAddressText } from "../utils/addressNormalize";
 
 const CACHE_KEY = "taiwan-valuation-geocode-cache-v1";
+const REVERSE_CACHE_KEY = "taiwan-valuation-reverse-geocode-cache-v1";
 const LAST_REQUEST_KEY = "taiwan-valuation-geocode-last-request";
 const MIN_REQUEST_GAP_MS = 1100;
 
 type CacheMap = Record<string, LocationCandidate[]>;
+type ReverseCacheMap = Record<string, LocationCandidate>;
 
 const loadCache = (): CacheMap => {
   try {
@@ -19,6 +21,22 @@ const loadCache = (): CacheMap => {
 const saveCache = (cache: CacheMap) => {
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // Caching is best-effort in private browsing or restricted storage modes.
+  }
+};
+
+const loadReverseCache = (): ReverseCacheMap => {
+  try {
+    return JSON.parse(localStorage.getItem(REVERSE_CACHE_KEY) ?? "{}") as ReverseCacheMap;
+  } catch {
+    return {};
+  }
+};
+
+const saveReverseCache = (cache: ReverseCacheMap) => {
+  try {
+    localStorage.setItem(REVERSE_CACHE_KEY, JSON.stringify(cache));
   } catch {
     // Caching is best-effort in private browsing or restricted storage modes.
   }
@@ -114,3 +132,59 @@ export const searchAddress = async (query: string): Promise<LocationCandidate[]>
 };
 
 const fullWidthSafeQuery = (value: string) => value.normalize("NFKC").replace(/臺/g, "台").trim();
+
+export const reverseGeocodePoint = async (lat: number, lng: number): Promise<LocationCandidate | undefined> => {
+  const cache = loadReverseCache();
+  const cacheKey = `${lat.toFixed(5)},${lng.toFixed(5)}`;
+  if (cache[cacheKey]) return cache[cacheKey];
+
+  await waitForRateLimit();
+  const url = new URL("https://nominatim.openstreetmap.org/reverse");
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("lat", String(lat));
+  url.searchParams.set("lon", String(lng));
+  url.searchParams.set("zoom", "18");
+  url.searchParams.set("addressdetails", "1");
+  url.searchParams.set("accept-language", "zh-TW");
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Nominatim reverse responded ${response.status}`);
+    const payload = (await response.json()) as {
+      place_id?: number;
+      display_name?: string;
+      lat?: string;
+      lon?: string;
+      address?: {
+        city?: string;
+        county?: string;
+        town?: string;
+        suburb?: string;
+        city_district?: string;
+        road?: string;
+        neighbourhood?: string;
+        house_number?: string;
+      };
+    };
+    if (!payload.display_name) return undefined;
+
+    const address = payload.address;
+    const roadLabel = [address?.road, address?.house_number].filter(Boolean).join("");
+    const candidate: LocationCandidate = {
+      id: `reverse-${payload.place_id ?? cacheKey}`,
+      label: payload.display_name,
+      city: address?.city ?? address?.county,
+      district: address?.town ?? address?.city_district ?? address?.suburb,
+      road: roadLabel || address?.road || address?.neighbourhood,
+      lat: Number(payload.lat ?? lat),
+      lng: Number(payload.lon ?? lng),
+      confidence: roadLabel ? 0.9 : 0.78,
+      source: "nominatim",
+    };
+    cache[cacheKey] = candidate;
+    saveReverseCache(cache);
+    return candidate;
+  } catch {
+    return undefined;
+  }
+};

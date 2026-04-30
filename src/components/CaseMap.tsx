@@ -1,6 +1,6 @@
 import L from "leaflet";
 import type { GeoJsonObject } from "geojson";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CircleMarker,
   GeoJSON,
@@ -18,8 +18,8 @@ import type { GeoJsonGeometry } from "../services/boundaries";
 import type { TransactionCase } from "../types";
 import { formatDistance, formatUnitWan, formatWan } from "../utils/format";
 
-const selectedIcon = L.divIcon({
-  className: "pegman-marker-icon",
+const createPegmanIcon = (isDragging: boolean) => L.divIcon({
+  className: `pegman-marker-icon ${isDragging ? "is-dragging" : ""}`,
   html: `
     <div class="pegman-marker" aria-hidden="true">
       <span class="pegman-head"></span>
@@ -92,6 +92,8 @@ export const CaseMap = ({
   className,
 }: CaseMapProps) => {
   const caseMarkers = useMemo(() => cases.slice(0, 80), [cases]);
+  const [pegmanDragging, setPegmanDragging] = useState(false);
+  const selectedIcon = useMemo(() => createPegmanIcon(pegmanDragging), [pegmanDragging]);
 
   return (
     <div className={`map-frame ${className ?? ""}`}>
@@ -111,9 +113,9 @@ export const CaseMap = ({
             style={{
               color: "#0ea5e9",
               fillColor: "#22d3ee",
-              fillOpacity: 0.22,
-              weight: 5,
-              dashArray: "14 10",
+              fillOpacity: 0.18,
+              weight: 3,
+              dashArray: "5 4",
               className: "district-flow",
             }}
           >
@@ -130,9 +132,9 @@ export const CaseMap = ({
             pathOptions={{
               color: "#0ea5e9",
               fillColor: "#22d3ee",
-              fillOpacity: 0.22,
-              weight: 5,
-              dashArray: "14 10",
+              fillOpacity: 0.18,
+              weight: 3,
+              dashArray: "5 4",
               className: "district-flow",
             }}
           >
@@ -148,7 +150,11 @@ export const CaseMap = ({
           icon={selectedIcon}
           draggable={Boolean(onPick)}
           eventHandlers={{
+            dragstart: () => {
+              setPegmanDragging(true);
+            },
             dragend: (event) => {
+              setPegmanDragging(false);
               const marker = event.target as L.Marker;
               const latLng = marker.getLatLng();
               onPick?.(latLng.lat, latLng.lng);

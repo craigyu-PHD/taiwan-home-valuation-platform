@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { HomePage } from "./pages/HomePage";
+import { DecisionRadarPage } from "./pages/DecisionRadarPage";
 import { MapEstimatePage } from "./pages/MapEstimatePage";
 import { MarketPage } from "./pages/MarketPage";
 import { MethodPage } from "./pages/MethodPage";
@@ -13,6 +14,7 @@ export const App = () => (
       <Route path="/estimate/map" element={<MapEstimatePage />} />
       <Route path="/estimate/result" element={<ResultPage />} />
       <Route path="/market" element={<MarketPage />} />
+      <Route path="/decision-radar" element={<DecisionRadarPage />} />
       <Route path="/method" element={<MethodPage />} />
       <Route path="/disclaimer" element={<MethodPage />} />
       <Route path="/guide" element={<MethodPage />} />
