@@ -4,10 +4,8 @@ import {
   Home,
   Info,
   Map,
-  Menu,
-  X,
 } from "lucide-react";
-import { type PropsWithChildren, useState } from "react";
+import { type PropsWithChildren } from "react";
 import { NavLink } from "react-router-dom";
 import { DEMO_DATA_NOTICE } from "../data/demoTransactions";
 
@@ -20,12 +18,10 @@ const navItems = [
 ];
 
 export const AppShell = ({ children }: PropsWithChildren) => {
-  const [open, setOpen] = useState(false);
-
   return (
     <div className="app-shell">
       <header className="site-header">
-        <NavLink to="/" className="brand" onClick={() => setOpen(false)}>
+        <NavLink to="/" className="brand">
           <span className="brand-mark" aria-hidden="true">
             <i />
           </span>
@@ -34,22 +30,13 @@ export const AppShell = ({ children }: PropsWithChildren) => {
             <small>透明估價 beta</small>
           </span>
         </NavLink>
-        <button
-          type="button"
-          className="icon-button mobile-menu-button"
-          aria-label={open ? "關閉選單" : "開啟選單"}
-          onClick={() => setOpen((value) => !value)}
-        >
-          {open ? <X size={21} /> : <Menu size={21} />}
-        </button>
-        <nav className={`site-nav ${open ? "is-open" : ""}`}>
+        <nav className="site-nav">
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
               <NavLink
                 key={item.to}
                 to={item.to}
-                onClick={() => setOpen(false)}
                 className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
               >
                 <Icon size={17} />
@@ -62,7 +49,7 @@ export const AppShell = ({ children }: PropsWithChildren) => {
       <main>{children}</main>
       <footer className="site-footer">
         <span className="footer-data-note">{DEMO_DATA_NOTICE}</span>
-        <span>資料來源規劃：內政部實價登錄 Open Data、OpenStreetMap / Leaflet、Nominatim。</span>
+        <span>資料來源規劃：內政部實價登錄 Open Data、國土測繪中心土地利用、OpenStreetMap / Leaflet / Overpass / Nominatim。</span>
         <span>本平台僅供市場行情參考，不構成正式不動產估價報告。</span>
       </footer>
     </div>

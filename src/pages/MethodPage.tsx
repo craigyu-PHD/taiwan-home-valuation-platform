@@ -16,7 +16,8 @@ export const MethodPage = () => (
         <h2>資料來源</h2>
         <p>
           正式版以內政部不動產成交案件實際資訊 Open Data 為主，下載本期與歷史批次資料後，
-          轉成標準交易資料表並保留來源、版本與更新時間。
+          轉成標準交易資料表並保留來源、版本與更新時間；土地用途與周邊機能則以國土測繪中心、
+          OpenStreetMap 與 Overpass 公開資料輔助判斷。
         </p>
         <a href={DATA_SOURCES.moiOpenData} className="text-link" target="_blank" rel="noreferrer">
           內政部不動產成交案件實際資訊資料供應系統
@@ -57,7 +58,8 @@ export const MethodPage = () => (
       <p>
         地圖以 Leaflet 與 OpenStreetMap 圖磚為原型方案，必須顯示 OSM attribution、
         遵守快取與禁止大量下載規則。地址解析若使用 Nominatim，需限制每秒最多一請求、
-        快取查詢結果、顯示來源，不做自動完成式高頻查詢。
+        快取查詢結果、顯示來源，不做自動完成式高頻查詢；土地用途與周邊機能查詢也會做本機快取，
+        避免對免費公開服務造成高頻負載。
       </p>
       <h2>免責聲明</h2>
       <p>

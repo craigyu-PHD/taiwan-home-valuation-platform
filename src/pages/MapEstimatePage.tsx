@@ -2,6 +2,7 @@ import { Crosshair, SlidersHorizontal } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AddressSearch } from "../components/AddressSearch";
 import { CaseMap } from "../components/CaseMap";
+import { LandUseBadge } from "../components/LandUseBadge";
 import { ResultSummary } from "../components/ResultSummary";
 import { TransactionList } from "../components/TransactionList";
 import { useEstimate } from "../context/EstimateContext";
@@ -19,7 +20,7 @@ export const MapEstimatePage = () => {
   const { propertyInput, setSelectedLocation, runValuation, valuation } = useEstimate();
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [boundary, setBoundary] = useState<BoundaryFeature | undefined>();
-  const [locatorStatus, setLocatorStatus] = useState("搜尋地址，或直接拖曳黃色小人到目標位置。");
+  const [locatorStatus, setLocatorStatus] = useState("搜尋地址，或直接拖曳地圖上的小水豚到目標位置。");
 
   const center: [number, number] = [propertyInput.lat ?? 23.8, propertyInput.lng ?? 121.0];
   useEffect(() => {
@@ -93,7 +94,7 @@ export const MapEstimatePage = () => {
 
   const useCurrentLocation = () => {
     if (!navigator.geolocation) {
-      setLocatorStatus("此瀏覽器不支援目前位置；請拖曳黃色小人或點選地圖。");
+      setLocatorStatus("此瀏覽器不支援目前位置；請拖曳小水豚或點選地圖。");
       return;
     }
     setLocatorStatus("正在取得目前位置...");
@@ -102,7 +103,7 @@ export const MapEstimatePage = () => {
         void pickMapPoint(position.coords.latitude, position.coords.longitude);
       },
       () => {
-        setLocatorStatus("無法取得目前位置，可能是瀏覽器尚未授權；仍可拖曳黃色小人或點選地圖估價。");
+        setLocatorStatus("無法取得目前位置，可能是瀏覽器尚未授權；仍可拖曳小水豚或點選地圖估價。");
       },
       { enableHighAccuracy: true, maximumAge: 60000, timeout: 10000 },
     );
@@ -139,6 +140,7 @@ export const MapEstimatePage = () => {
             <strong>{propertyInput.address}</strong>
             <small>{locatorStatus}</small>
           </div>
+          <LandUseBadge lat={propertyInput.lat} lng={propertyInput.lng} compact />
           <ResultSummary result={preview} compact />
           <TransactionList cases={preview.casesUsed.slice(0, 5)} />
         </aside>

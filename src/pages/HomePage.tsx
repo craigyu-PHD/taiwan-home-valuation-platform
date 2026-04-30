@@ -1,7 +1,8 @@
-import { BarChart3, CheckCircle2, Database, MapPinned, ShieldAlert } from "lucide-react";
+import { Database, MapPinned } from "lucide-react";
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { DisclaimerBox } from "../components/DisclaimerBox";
+import { LandUseBadge } from "../components/LandUseBadge";
 import { PropertyEstimateForm } from "../components/PropertyEstimateForm";
 import { ResultSummary } from "../components/ResultSummary";
 import { TransactionList } from "../components/TransactionList";
@@ -9,7 +10,7 @@ import { useEstimate } from "../context/EstimateContext";
 import { formatUnitWan, formatWan } from "../utils/format";
 
 export const HomePage = () => {
-  const { valuation } = useEstimate();
+  const { propertyInput, valuation } = useEstimate();
   const [hasInlineResult, setHasInlineResult] = useState(false);
   const chartCases = valuation?.casesUsed.slice(0, 5) ?? [];
   const maxUnit = Math.max(...chartCases.map((item) => item.unitPriceWan), 1);
@@ -22,17 +23,11 @@ export const HomePage = () => {
           <Database size={18} />
           <strong>估價標準</strong>
         </div>
-        <div>
-          <CheckCircle2 size={21} />
-          <span>以實價登錄成交為主</span>
-        </div>
-        <div>
-          <BarChart3 size={21} />
-          <span>輸出合理價格區間</span>
-        </div>
-        <div>
-          <ShieldAlert size={21} />
-          <span>資料不足時降低信心或拒估</span>
+        <p>以實價登錄與周邊可比成交為主，輸出價格區間；資料不足或特殊物件會降低信心，不硬給單點價格。</p>
+        <div className="standard-pills">
+          <span>成交資料</span>
+          <span>價格區間</span>
+          <span>信心分數</span>
         </div>
       </section>
 
@@ -45,6 +40,7 @@ export const HomePage = () => {
             產生價格區間、信心分數、估價依據與限制說明。
           </p>
           <PropertyEstimateForm stayOnPage onEstimated={() => setHasInlineResult(true)} />
+          <LandUseBadge lat={propertyInput.lat} lng={propertyInput.lng} compact />
           <div className="hero-actions">
             <NavLink className="secondary-button" to="/estimate/map">
               <MapPinned size={18} />
