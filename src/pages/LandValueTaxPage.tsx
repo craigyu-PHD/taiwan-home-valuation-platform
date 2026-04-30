@@ -29,13 +29,10 @@ export const LandValueTaxPage = () => {
 
   return (
     <div className="page land-tax-page">
-      <section className="section-heading">
+      <section className="section-heading tax-heading">
         <span className="eyebrow">出售成本 / 賣方稅費</span>
         <h1>土地增值稅試算</h1>
-        <p>
-          地址由目前估價標的帶入，不能在稅費頁直接修改；若要換標的，請回地址估價、地圖估價或決策雷達更新。
-          其他試算欄位可自行調整，結果會即時更新。
-        </p>
+        <p>地址由估價標的帶入並鎖定；只調整稅務欄位，右側即時更新出售成本。</p>
       </section>
 
       <section className="tax-subject-card">
@@ -56,7 +53,7 @@ export const LandValueTaxPage = () => {
         <div className="land-tax-form">
           <article className="tax-form-card tax-simple-card">
             <h2>快速試算欄位</h2>
-            <p>先填最關鍵的數字即可；不知道前次移轉現值時，系統會標示低信心概算。</p>
+            <p>必要欄位只保留現值、前次現值、取得年份、面積、持分與自用條件；不知道前次現值時會標示低信心概算。</p>
             <div className="form-grid tax-simple-grid">
               <label>本次申報移轉現值<input type="number" value={input.currentLandValue || ""} onChange={(event) => update({ currentLandValue: toNumber(event.target.value) })} /></label>
               <label>前次移轉現值 / 原規定地價<input type="number" value={input.previousLandValue || ""} onChange={(event) => update({ previousLandValue: toNumber(event.target.value) })} /></label>
@@ -122,11 +119,11 @@ export const LandValueTaxPage = () => {
         </aside>
       </section>
 
-      <section className="legal-card">
-        <h2>試算依據與限制</h2>
+      <section className="legal-card tax-legal-card">
+        <h2>公式與限制</h2>
         <p>
-          本模組依土地稅法的土地漲價總數額、一般稅率、自用住宅優惠、長期持有減徵與重購退稅原則建立簡化試算。
-          若前次移轉現值、物價指數、土地面積、持分、戶籍或出租營業狀態不完整，系統會降低信心；實際應納稅額仍以地方稅稽徵機關核定為準。
+          公式採「本次移轉現值 - 物價指數調整後前次現值 - 可扣除費用」計算土地漲價總數額；
+          一般稅率以 20% / 30% / 40% 累進試算，自用住宅合格面積以 10% 試算，超額面積回到一般稅率。
         </p>
         <a className="text-link" href="https://law.moj.gov.tw/LawClass/LawAll.aspx?pcode=G0340096" target="_blank" rel="noreferrer">
           查看土地稅法

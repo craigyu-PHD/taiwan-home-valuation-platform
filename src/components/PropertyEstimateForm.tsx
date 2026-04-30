@@ -39,7 +39,7 @@ const extractHouseNumber = (value?: string) =>
 
 export const PropertyEstimateForm = ({
   compact = false,
-  submitLabel = "產生估價",
+  submitLabel = "立刻估價",
   stayOnPage = false,
   onEstimated,
 }: PropertyEstimateFormProps) => {

@@ -75,6 +75,11 @@ const progressiveGeneralTax = (gain: number, adjustedPreviousValue: number) => {
   return first + second + third;
 };
 
+const applyLongTermReduction = (rawTax: number, gain: number, reductionRate: number, credit = 0) => {
+  const minimumTax = gain * 0.2;
+  return Math.max(0, minimumTax + Math.max(0, rawTax - minimumTax) * (1 - reductionRate) - credit);
+};
+
 const getHoldingYears = (year?: number) => (year ? new Date().getFullYear() - year : 0);
 
 export const calculateLandValueTax = (input: LandValueTaxInput): LandValueTaxResult => {
@@ -88,22 +93,33 @@ export const calculateLandValueTax = (input: LandValueTaxInput): LandValueTaxRes
     input.rezoningDonationValue +
     input.landReadjustmentCost;
   const gain = Math.max(0, input.currentLandValue - deductions);
-  const rawGeneralTax = progressiveGeneralTax(gain, adjustedPreviousValue);
   const holdingYears = getHoldingYears(input.acquisitionYear);
   const reductionRate = holdingYears >= 40 ? 0.4 : holdingYears >= 30 ? 0.3 : holdingYears >= 20 ? 0.2 : 0;
-  const minimumTax = gain * 0.2;
-  const generalTax = Math.max(0, minimumTax + Math.max(0, rawGeneralTax - minimumTax) * (1 - reductionRate) - input.extraLandTaxCredit);
+  const rawGeneralTax = progressiveGeneralTax(gain, adjustedPreviousValue);
+  const generalTax = applyLongTermReduction(rawGeneralTax, gain, reductionRate, input.extraLandTaxCredit);
   const selfUseAreaLimit = input.usedOnce === "yes" ? (input.isUrban ? 150 : 350) : input.isUrban ? 300 : 700;
   const selfUseAnswers = [input.selfUse, input.rentedOrBusinessLastYear, input.householdRegistered, input.ownsOtherHouse];
   const hasUnknown = selfUseAnswers.includes("unknown");
-  const eligibleSelfUse =
+  const qualifiesSelfUse =
     input.selfUse === "yes" &&
     input.rentedOrBusinessLastYear === "no" &&
     input.householdRegistered === "yes" &&
-    (input.usedOnce === "no" || input.ownsOtherHouse === "no") &&
-    transferAreaSqm <= selfUseAreaLimit;
-  const selfUseTax = input.selfUse === "yes" || hasUnknown ? Math.max(0, gain * 0.1 - input.extraLandTaxCredit) : undefined;
-  const bestTax = eligibleSelfUse && selfUseTax !== undefined ? Math.min(generalTax, selfUseTax) : generalTax;
+    (input.usedOnce === "no" || input.ownsOtherHouse === "no");
+  const exceedsSelfUseLimit = transferAreaSqm > selfUseAreaLimit;
+  const selfUseAreaRatio = transferAreaSqm ? clamp(selfUseAreaLimit / transferAreaSqm, 0, 1) : 0;
+  const selfUseGain = gain * selfUseAreaRatio;
+  const excessGain = gain - selfUseGain;
+  const excessAdjustedBase = adjustedPreviousValue * (1 - selfUseAreaRatio);
+  const excessGeneralTax = applyLongTermReduction(
+    progressiveGeneralTax(excessGain, excessAdjustedBase),
+    excessGain,
+    reductionRate,
+  );
+  const selfUseTax =
+    input.selfUse === "yes" || hasUnknown
+      ? Math.max(0, selfUseGain * 0.1 + excessGeneralTax - input.extraLandTaxCredit)
+      : undefined;
+  const bestTax = qualifiesSelfUse && selfUseTax !== undefined ? Math.min(generalTax, selfUseTax) : generalTax;
   const warnings = [
     !input.previousLandValue ? "缺少前次移轉現值或原規定地價，不能精準試算。" : "",
     !input.landAreaSqm ? "缺少土地面積，優惠面積限制無法判斷。" : "",
@@ -132,11 +148,13 @@ export const calculateLandValueTax = (input: LandValueTaxInput): LandValueTaxRes
     bestTax: Math.round(bestTax),
     confidenceScore,
     confidenceLabel: confidenceScore >= 72 ? "高" : confidenceScore >= 48 ? "中" : "低",
-    selfUseEligibility: eligibleSelfUse
-      ? "可能符合自用住宅優惠，仍需確認戶籍、出租營業與地方稅務機關核定。"
+    selfUseEligibility: qualifiesSelfUse
+      ? exceedsSelfUseLimit
+        ? "可能符合自用住宅優惠；合格面積內以 10% 概算，超過面積回一般稅率，仍以地方稅務機關核定為準。"
+        : "可能符合自用住宅優惠，仍需確認戶籍、出租營業與地方稅務機關核定。"
       : hasUnknown
         ? "資料不足，需確認戶籍、出租營業、是否另有房屋與曾用優惠狀態。"
-        : "目前條件看起來不符合自用住宅優惠或超過優惠面積。",
+        : "目前條件看起來不符合自用住宅優惠。",
     repurchaseNote:
       input.checkRepurchase === "yes"
         ? "已勾選重購退稅檢查，需確認兩年內重購、自用住宅狀態與新購土地地價。"

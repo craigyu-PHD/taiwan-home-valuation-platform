@@ -20,7 +20,6 @@ import { AddressSearch } from "../components/AddressSearch";
 import { LandUseBadge } from "../components/LandUseBadge";
 import { ModeSwitch } from "../components/ModeSwitch";
 import { RentalSummary } from "../components/RentalSummary";
-import { ResultSummary } from "../components/ResultSummary";
 import { useEstimate } from "../context/EstimateContext";
 import { useLandUseInfo } from "../hooks/useLandUseInfo";
 import { useLocationIntel } from "../hooks/useLocationIntel";
@@ -260,6 +259,7 @@ export const DecisionRadarPage = () => {
   const buyerCeiling = Math.min(ceilingOffer, buyerMindPrice * 1.055);
   const overlapLow = Math.min(Math.max(buyerMindPrice, conservativeOffer), ceilingOffer);
   const overlapHigh = Math.max(Math.min(sellerMindPrice, ceilingOffer), overlapLow);
+  const negotiationGapPct = fairOffer ? ((sellerMindPrice - buyerMindPrice) / fairOffer) * 100 : 0;
   const targetLabel = propertyInput.communityName || propertyInput.address || selectedLocation?.label || "尚未指定標的";
   const buyerUps = signals.filter((item) => item.buyerEffect === "利多").length;
   const buyerDowns = signals.filter((item) => item.buyerEffect === "利少").length;
@@ -277,6 +277,7 @@ export const DecisionRadarPage = () => {
     [intel],
   );
   const openFeatureGroup = featureGroups.find((group) => group.category === openIntelGroup);
+  const totalFeatureCount = featureGroups.reduce((sum, group) => sum + group.count, 0);
 
   const renderSignalList = (side: "buyer" | "seller") =>
     signals.map((item) => {
@@ -420,6 +421,24 @@ export const DecisionRadarPage = () => {
                 <strong>{targetLabel}</strong>
               </div>
               <p>租屋風險會納入月租區間、地段、300 公尺生活機能、屋況與資料信心。</p>
+              <div className="risk-metric-grid">
+                <span>
+                  信心
+                  <strong>{confidence}</strong>
+                </span>
+                <span>
+                  區間寬度
+                  <strong>{pct(spread)}</strong>
+                </span>
+                <span>
+                  300m 節點
+                  <strong>{totalFeatureCount}</strong>
+                </span>
+                <span>
+                  租金樣本
+                  <strong>{rentResult.comparableCount}</strong>
+                </span>
+              </div>
             </div>
           </article>
           <article className="target-intel-card">
@@ -530,6 +549,24 @@ export const DecisionRadarPage = () => {
             <p>
               風險分數由信心分數、價格區間寬度、特殊狀況、300 公尺機能密度與周邊樣本密度共同推估。
             </p>
+            <div className="risk-metric-grid">
+              <span>
+                信心
+                <strong>{confidence}</strong>
+              </span>
+              <span>
+                區間寬度
+                <strong>{pct(spread)}</strong>
+              </span>
+              <span>
+                300m 節點
+                <strong>{totalFeatureCount}</strong>
+              </span>
+              <span>
+                成交樣本
+                <strong>{result.comparableCount}</strong>
+              </span>
+            </div>
           </div>
         </article>
 
@@ -635,6 +672,12 @@ export const DecisionRadarPage = () => {
             <p>理想開價錨點，需由成交、機能與稀缺性支撐。</p>
           </article>
         </div>
+        <div className="strategy-stat-row">
+          <span>模型中位價：{formatWan(fairOffer)}</span>
+          <span>心理價差：{negotiationGapPct.toFixed(1)}%</span>
+          <span>參考單價：{formatUnitWan(result.unitMedianWan)}</span>
+          <span>可比案例：{result.comparableCount} 筆</span>
+        </div>
         <div className="strategy-synthesis-grid">
           <p>
             <strong>最佳報價價位 MPP：</strong>
@@ -658,8 +701,6 @@ export const DecisionRadarPage = () => {
           </p>
         </div>
       </section>
-
-      <ResultSummary result={result} compact />
     </div>
   );
 };

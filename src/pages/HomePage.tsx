@@ -45,7 +45,7 @@ export const HomePage = () => {
           <ModeSwitch />
           <PropertyEstimateForm
             stayOnPage
-            submitLabel={transactionMode === "sale" ? "產生估價" : "產生租金行情"}
+            submitLabel={transactionMode === "sale" ? "立刻估價" : "立刻看租金"}
             onEstimated={() => setHasInlineResult(true)}
           />
           <LandUseBadge lat={propertyInput.lat} lng={propertyInput.lng} compact />
