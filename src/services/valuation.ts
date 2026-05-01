@@ -329,7 +329,9 @@ const makeNotSuitable = (input: PropertyInput, cases: WeightedCase[], reasons: s
   communityComparableCount: cases.filter(
     (item) => input.communityName && item.communityName === input.communityName,
   ).length,
-  nearestDistanceMeters: cases[0]?.distanceMeters,
+  nearestDistanceMeters: cases.length
+    ? Math.min(...cases.map((item) => item.distanceMeters ?? Number.MAX_SAFE_INTEGER))
+    : undefined,
   latestTransactionDate: cases
     .map((item) => item.transactionDate)
     .sort()
@@ -522,7 +524,9 @@ export const estimateProperty = (
     communityComparableCount: scoredCases.filter(
       (item) => input.communityName && item.communityName === input.communityName,
     ).length,
-    nearestDistanceMeters: scoredCases[0]?.distanceMeters,
+    nearestDistanceMeters: scoredCases.length
+      ? Math.min(...scoredCases.map((item) => item.distanceMeters ?? Number.MAX_SAFE_INTEGER))
+      : undefined,
     latestTransactionDate: scoredCases
       .map((item) => item.transactionDate)
       .sort()

@@ -7,6 +7,7 @@ import { MarketPage } from "./pages/MarketPage";
 import { MethodPage } from "./pages/MethodPage";
 import { ResultPage } from "./pages/ResultPage";
 import { LandValueTaxPage } from "./pages/LandValueTaxPage";
+import { NewsPolicyPage } from "./pages/NewsPolicyPage";
 
 export const App = () => (
   <AppShell>
@@ -15,6 +16,7 @@ export const App = () => (
       <Route path="/estimate/map" element={<MapEstimatePage />} />
       <Route path="/estimate/result" element={<ResultPage />} />
       <Route path="/land-value-tax" element={<LandValueTaxPage />} />
+      <Route path="/news-policy" element={<NewsPolicyPage />} />
       <Route path="/market" element={<MarketPage />} />
       <Route path="/decision-radar" element={<DecisionRadarPage />} />
       <Route path="/method" element={<MethodPage />} />

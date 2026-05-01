@@ -36,7 +36,7 @@ export const RentalSummary = ({ result, compact = false }: { result: RentalValua
         <strong>{formatDate(result.latestReferenceDate)}</strong>
       </div>
       <div>
-        <span>最近距離</span>
+        <span>最近案例距離</span>
         <strong>{formatDistance(result.nearestDistanceMeters)}</strong>
       </div>
       <div>

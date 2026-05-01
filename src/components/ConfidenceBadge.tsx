@@ -1,4 +1,5 @@
 import type { ConfidenceLevel } from "../types";
+import type { CSSProperties } from "react";
 
 const levelClass: Record<ConfidenceLevel, string> = {
   高信心: "high",
@@ -14,8 +15,11 @@ export const ConfidenceBadge = ({
   score: number;
   level: ConfidenceLevel;
 }) => (
-  <div className={`confidence-badge ${levelClass[level]}`}>
-    <div>
+  <div
+    className={`confidence-badge ${levelClass[level]}`}
+    style={{ "--score": `${Math.max(0, Math.min(100, score)) * 3.6}deg` } as CSSProperties & Record<"--score", string>}
+  >
+    <div className="confidence-ring">
       <strong>{score}</strong>
       <span>/100</span>
     </div>

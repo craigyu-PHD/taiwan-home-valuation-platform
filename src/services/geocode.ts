@@ -45,6 +45,12 @@ const saveReverseCache = (cache: ReverseCacheMap) => {
 const localCandidates = (query: string) => {
   const queryVariants = getAddressSearchVariants(query);
   if (!queryVariants.length) return [];
+  const isGuoduQuery = queryVariants.some(
+    (variant) => /國[都度]花園/.test(variant) || (/莊敬路/.test(variant) && /103/.test(variant)),
+  );
+  const directMatches = isGuoduQuery
+    ? taiwanPlaceCandidates.filter((candidate) => candidate.id === "local-taoyuan-guodu")
+    : [];
   return taiwanPlaceCandidates.filter((candidate) => {
     const haystack = normalizeAddressText(
       `${candidate.label}${candidate.city ?? ""}${candidate.district ?? ""}${candidate.road ?? ""}`,
@@ -53,7 +59,9 @@ const localCandidates = (query: string) => {
     return queryVariants.some((normalizedQuery) => {
       return haystack.includes(normalizedQuery) || normalizedQuery.includes(road);
     });
-  });
+  }).reduce<LocationCandidate[]>((items, candidate) => (
+    items.some((item) => item.id === candidate.id) ? items : [...items, candidate]
+  ), directMatches);
 };
 
 const waitForRateLimit = async () => {

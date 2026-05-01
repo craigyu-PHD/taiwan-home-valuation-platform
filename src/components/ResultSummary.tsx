@@ -53,7 +53,7 @@ export const ResultSummary = ({ result, compact = false }: { result: ValuationRe
         <strong>{formatDate(result.latestTransactionDate)}</strong>
       </div>
       <div>
-        <span>最近距離</span>
+        <span>最近案例距離</span>
         <strong>{formatDistance(result.nearestDistanceMeters)}</strong>
       </div>
       <div>

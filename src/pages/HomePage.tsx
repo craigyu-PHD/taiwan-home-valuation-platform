@@ -106,12 +106,11 @@ export const HomePage = () => {
           <div className="section-heading compact-heading">
             <span className="eyebrow">同頁估價結果</span>
             <h2>{transactionMode === "sale" ? "地址估價已完成" : "租金行情已完成"}</h2>
-            <p>下方結果依目前地址與進階條件即時計算，不需離開首頁。</p>
           </div>
           {transactionMode === "sale" && valuation ? (
             <>
               <ResultSummary result={valuation} compact />
-              <TransactionList cases={valuation.casesUsed.slice(0, 5)} />
+              <TransactionList cases={valuation.casesUsed} />
             </>
           ) : (
             <>

@@ -14,6 +14,7 @@ import { useNavigate } from "react-router-dom";
 import { useEstimate } from "../context/EstimateContext";
 import { taiwanAdmin, taiwanCities } from "../data/taiwanAdmin";
 import { getBoundaryCenter, getTownBoundary } from "../services/boundaries";
+import { searchAddress } from "../services/geocode";
 import { createDefaultInput, propertyTypes, specialFactors } from "../services/valuation";
 import type { LocationCandidate, ParkingType, PropertyInput, SpecialFactor, ValuationResult } from "../types";
 import { normalizeAddressText } from "../utils/addressNormalize";
@@ -104,18 +105,20 @@ export const PropertyEstimateForm = ({
 
   const syncAddress = async () => {
     const address = buildAddress();
+    const geocoded = searchMode === "地址搜尋" ? await searchAddress(address) : [];
+    const bestMatch = geocoded[0];
     const boundary = await getTownBoundary(city, district);
     const center = getBoundaryCenter(boundary?.geometry);
     const candidate: LocationCandidate = {
       id: `structured-${normalizeAddressText(address)}`,
       label: address,
-      city,
-      district,
-      road: searchMode === "地址搜尋" && road ? `${road}${section ? `${section}段` : ""}` : undefined,
-      lat: center?.[0] ?? propertyInput.lat ?? 25.033964,
-      lng: center?.[1] ?? propertyInput.lng ?? 121.564468,
-      confidence: center ? (searchMode === "地址搜尋" ? 0.78 : 0.72) : 0.58,
-      source: "manual",
+      city: bestMatch?.city ?? city,
+      district: bestMatch?.district ?? district,
+      road: bestMatch?.road ?? (searchMode === "地址搜尋" && road ? `${road}${section ? `${section}段` : ""}` : undefined),
+      lat: bestMatch?.lat ?? center?.[0] ?? propertyInput.lat ?? 25.033964,
+      lng: bestMatch?.lng ?? center?.[1] ?? propertyInput.lng ?? 121.564468,
+      confidence: bestMatch?.confidence ?? (center ? (searchMode === "地址搜尋" ? 0.78 : 0.72) : 0.58),
+      source: bestMatch?.source ?? "manual",
     };
     setSelectedLocation(candidate);
     updatePropertyInput({

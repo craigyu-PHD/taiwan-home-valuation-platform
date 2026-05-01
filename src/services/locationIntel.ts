@@ -14,7 +14,7 @@ export interface LocationIntel {
   sourceUrl: string;
 }
 
-const CACHE_KEY = "taiwan-valuation-location-intel-v6";
+const CACHE_KEY = "taiwan-valuation-location-intel-v7";
 const GUODU_CENTER = { lat: 25.02247, lng: 121.29303 };
 
 type CacheMap = Record<string, LocationIntel>;
@@ -72,22 +72,23 @@ const localGuoduFeatures: NearbyFeature[] = [
   { name: "中正同德十一街口公車站", category: "transit", distanceMeters: 210 },
   { name: "同德十一街步行轉乘點", category: "transit", distanceMeters: 240 },
   { name: "尊爵飯店公車站", category: "transit", distanceMeters: 290 },
-  { name: "全聯福利中心桃園莊敬店", category: "retail", distanceMeters: 80 },
-  { name: "晨宏診所旁藥妝生活機能", category: "retail", distanceMeters: 120 },
-  { name: "萊爾富桃市桃爵店", category: "retail", distanceMeters: 170 },
-  { name: "莊敬路餐飲商店帶", category: "retail", distanceMeters: 210 },
-  { name: "全家桃園莊敬店", category: "retail", distanceMeters: 240 },
-  { name: "中正路日常採買節點", category: "retail", distanceMeters: 280 },
-  { name: "晨宏診所", category: "medical", distanceMeters: 120 },
-  { name: "莊敬路社區藥局", category: "medical", distanceMeters: 180 },
-  { name: "桃園同德藥局生活圈", category: "medical", distanceMeters: 260 },
-  { name: "中正路基層醫療生活圈", category: "medical", distanceMeters: 295 },
-  { name: "莊敬國小通學生活圈", category: "school", distanceMeters: 280 },
-  { name: "藝文特區補習教育帶", category: "school", distanceMeters: 290 },
-  { name: "同德國中小文教生活圈", category: "school", distanceMeters: 300 },
-  { name: "莊敬公園生活圈", category: "green", distanceMeters: 230 },
-  { name: "社區前庭綠蔭步行帶", category: "green", distanceMeters: 250 },
-  { name: "中寧綠帶休憩點", category: "green", distanceMeters: 290 },
+  { name: "未來捷運綠線 G12 生活圈", category: "transit", distanceMeters: 300 },
+  { name: "全聯福利中心莊敬生活圈", category: "retail", distanceMeters: 60 },
+  { name: "全家便利商店莊敬路商圈", category: "retail", distanceMeters: 95 },
+  { name: "莊敬路餐飲店帶", category: "retail", distanceMeters: 130 },
+  { name: "中正路日常採買節點", category: "retail", distanceMeters: 170 },
+  { name: "同德十一街餐飲生活圈", category: "retail", distanceMeters: 210 },
+  { name: "敬二街社區型商店", category: "retail", distanceMeters: 235 },
+  { name: "藝文特區外圍商業服務", category: "retail", distanceMeters: 295 },
+  { name: "莊敬路基層診所生活圈", category: "medical", distanceMeters: 130 },
+  { name: "社區藥局服務節點", category: "medical", distanceMeters: 170 },
+  { name: "中正路醫療與藥局服務", category: "medical", distanceMeters: 260 },
+  { name: "莊敬國小通學生活圈", category: "school", distanceMeters: 260 },
+  { name: "同德國中文教生活圈", category: "school", distanceMeters: 285 },
+  { name: "圖書館與閱讀服務生活圈", category: "school", distanceMeters: 295 },
+  { name: "莊敬公園生活圈", category: "green", distanceMeters: 210 },
+  { name: "中正公園休憩生活圈", category: "green", distanceMeters: 280 },
+  { name: "瑞慶公園步行生活圈", category: "green", distanceMeters: 300 },
 ];
 
 const isNearGuodu = (lat: number, lng: number) =>

@@ -1,4 +1,4 @@
-import { Landmark, MapPinned, MapPinnedIcon } from "lucide-react";
+import { Landmark, MapPinned } from "lucide-react";
 import { useLandUseInfo } from "../hooks/useLandUseInfo";
 
 interface LandUseBadgeProps {
@@ -18,7 +18,9 @@ export const LandUseBadge = ({ lat, lng, compact = false, className }: LandUseBa
       : hasCoordinates
         ? "此座標暫無可用土地用途別"
         : "尚未取得精準座標";
-  const sourceText = info?.sourceLabel ?? info?.sourceName ?? "公開圖資";
+  const classificationText = info
+    ? [info.primaryName, info.secondaryName, info.detailName].filter(Boolean).join(" / ")
+    : undefined;
 
   return (
     <article className={`land-use-badge ${compact ? "compact" : ""} ${className ?? ""}`}>
@@ -28,30 +30,8 @@ export const LandUseBadge = ({ lat, lng, compact = false, className }: LandUseBa
       <div>
         <span>土地用途別</span>
         <strong>{landUseLabel}</strong>
-        {info && (
-          <div className="land-use-detail-grid" aria-label="土地用途摘要">
-            <div>
-              <span>用途來源</span>
-              <strong>{sourceText}</strong>
-            </div>
-            <div>
-              <span>現況分類</span>
-              <strong>{[info.primaryName, info.secondaryName].filter(Boolean).join(" / ") || "未標示"}</strong>
-            </div>
-          </div>
-        )}
-        {!info && (
-          <div className="land-parcel-grid">
-            <small>
-              <MapPinnedIcon size={13} />
-              完成定位後查詢公開圖資
-            </small>
-          </div>
-        )}
         {info ? (
-          <small>
-            {info.latestYear ? `${info.latestYear}年${info.latestMonth ?? ""}月資料` : "公開圖資"} · {info.detailSummary ?? info.sourceNote}
-          </small>
+          <small>{classificationText || "完成定位後依公開圖資判讀；正式用途仍以主管機關核定為準。"}</small>
         ) : (
           <small>{hasCoordinates ? "請微調定位點或稍後再試。" : "完成地址或地圖定位後會自動查詢。"}</small>
         )}

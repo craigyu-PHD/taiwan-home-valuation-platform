@@ -278,6 +278,13 @@ export const DecisionRadarPage = () => {
   );
   const openFeatureGroup = featureGroups.find((group) => group.category === openIntelGroup);
   const totalFeatureCount = featureGroups.reduce((sum, group) => sum + group.count, 0);
+  const landUseSummary = landUse?.displayName || landUse?.detailName || landUse?.secondaryName || "土地用途待查";
+  const neighborhoodSummary = totalFeatureCount
+    ? `300 公尺內目前辨識 ${totalFeatureCount} 個公開節點，其中交通 ${intel?.transitCount ?? 0}、生活機能 ${intel?.retailCount ?? 0}、文教 ${intel?.schoolCount ?? 0}、公園 ${intel?.greenCount ?? 0}、醫療 ${intel?.medicalCount ?? 0}。`
+    : "300 公尺內公開節點資料不足，需用現場查證補強。";
+  const conditionSummary = propertyInput.specialFactors.length
+    ? `標的帶有 ${propertyInput.specialFactors.join("、")} 等特殊狀況，必須折入風險價差。`
+    : `目前屋況為「${propertyInput.condition || "未提供"}」，仍需用漏水、管線、管理費與修繕紀錄查證。`;
 
   const renderSignalList = (side: "buyer" | "seller") =>
     signals.map((item) => {
@@ -678,27 +685,87 @@ export const DecisionRadarPage = () => {
           <span>參考單價：{formatUnitWan(result.unitMedianWan)}</span>
           <span>可比案例：{result.comparableCount} 筆</span>
         </div>
-        <div className="strategy-synthesis-grid">
-          <p>
-            <strong>最佳報價價位 MPP：</strong>
-            賣方可從 {formatWan(sellerMpp)} 作為理想錨點，保留讓步空間；若缺少同社區、同路段或近 12 個月案例，
-            應主動回到交會談判帶，避免開價故事被買方用資料打穿。
-          </p>
-          <p>
-            <strong>包圍法：</strong>
-            買方可用 {formatWan(buyerOpening)} 開始，目標落在 {formatWan(buyerMindPrice)} 附近；
-            若賣方先開高價，回報價差應以交會帶中線為中心，讓談判逐步收斂到可成交的數據區間。
-          </p>
-          <p>
-            <strong>拒絕與價值提升：</strong>
-            當開價高於 {formatWan(ceilingOffer)}，買方應拒絕第一次報價並要求屋況、產權、貸款與近期成交證據；
-            賣方若要守價，必須把 300 公尺機能、土地使用現況、維護紀錄與稀缺性整理成可驗證清單。
-          </p>
-          <p>
-            <strong>數據佐證：</strong>
-            目前參考單價 {formatUnitWan(result.unitMedianWan)}、區間寬度 {pct(spread)}、可比案例 {result.comparableCount} 筆；
-            後臺會把土地用途、300 公尺機能、成交信心與特殊狀況轉成溢價或折價。
-          </p>
+        <div className="negotiation-strategy-board">
+          <article className="negotiation-strategy-card buyer">
+            <h3>買家談判策略</h3>
+            <ul>
+              <li>
+                <strong>開價邏輯：</strong>
+                以 {formatWan(buyerOpening)} 作為包圍法低點，先把貸款、屋況與政策不確定性折入價格；
+                目標落在 {formatWan(buyerMindPrice)}，除非賣方提出更強證據，買方上限不應超過 {formatWan(buyerCeiling)}。
+              </li>
+              <li>
+                <strong>大環境檢核：</strong>
+                買方應把利率、房貸成數、信用管制、稅費與持有成本列入現金流壓力測試；若每月負擔或核貸條件不穩，
+                即使區域行情支撐，也要把出價壓在交會帶下緣。
+              </li>
+              <li>
+                <strong>區域與機能：</strong>
+                {neighborhoodSummary} 機能是加分，但買方談判時應要求賣方證明這些機能真的能轉成居住價值，
+                例如步行距離、班距、學區、噪音與生活動線。
+              </li>
+              <li>
+                <strong>標的風險：</strong>
+                土地用途目前判讀為「{landUseSummary}」；{conditionSummary} 若屋況文件不足，
+                買方應要求修繕估價、管理費紀錄與產權文件，並用 {pct(spread)} 的區間寬度作為折價依據。
+              </li>
+              <li>
+                <strong>成交證據攻防：</strong>
+                目前最近案例距離為 {formatDistance(result.nearestDistanceMeters)}、近 12 個月案例 {result.recentComparableCount} 筆。
+                買方應要求排除樓層、車位、屋況或特殊交易差異過大的案例，避免賣方只挑高價樣本支撐開價。
+              </li>
+              <li>
+                <strong>交易條件交換：</strong>
+                若賣方不願降到 {formatWan(buyerMindPrice)} 附近，買方可改談交屋期限、家具設備、修繕保固、漏水責任、
+                稅費分攤與付款條件，把價格讓步換成可量化保障。
+              </li>
+              <li>
+                <strong>政策與新聞檢核：</strong>
+                若新聞政策分頁出現貸款收緊、供給增加或區域政策不確定，買方應把它放進現金流壓力與轉手風險；
+                若政策是社宅、補貼或都更題材，仍要確認是否真的影響本標的生活圈。
+              </li>
+            </ul>
+          </article>
+          <article className="negotiation-strategy-card seller">
+            <h3>賣家談判策略</h3>
+            <ul>
+              <li>
+                <strong>守價邏輯：</strong>
+                賣方可以 {formatWan(sellerMpp)} 作為最佳報價價位 MPP，但必須預留讓步空間；
+                若買方用 {formatWan(buyerOpening)} 試探，賣方應把談判拉回 {formatWan(overlapLow)} - {formatWan(overlapHigh)} 的成交交會帶。
+              </li>
+              <li>
+                <strong>數據佐證：</strong>
+                目前模型中位價 {formatWan(fairOffer)}、參考單價 {formatUnitWan(result.unitMedianWan)}、可比案例 {result.comparableCount} 筆。
+                賣方若要守高於交會帶的價格，應提出同社區、同屋齡、近 12 個月成交與車位/樓層差異說明。
+              </li>
+              <li>
+                <strong>區域敘事：</strong>
+                {neighborhoodSummary} 賣方可把交通、生活機能、文教、公園與重大建設整理成價值敘事；
+                但每一項都要附距離、時間、使用便利性與實際受益族群，避免只用空泛題材開價。
+              </li>
+              <li>
+                <strong>降低買方疑慮：</strong>
+                土地用途「{landUseSummary}」與屋況文件若完整，能降低買方風險折扣。
+                賣方應主動提供修繕紀錄、管理費、社區規約、產權狀態與稅費試算，讓買方沒有理由把價格壓回保守區間。
+              </li>
+              <li>
+                <strong>開價梯度：</strong>
+                第一輪開價可高於交會帶，但每次讓步都要換取條件，例如較短議價期、明確付款時程或較少附帶要求；
+                若買方出價低於 {formatWan(buyerOpening)}，賣方應要求其提出同社區、同屋齡與同坪數的低價成交證據。
+              </li>
+              <li>
+                <strong>溢價證據包：</strong>
+                賣方應整理 300 公尺內交通、生活機能、文教、公園與醫療節點，搭配同社區成交、管理品質、戶數、車位、
+                樓層採光與屋況照片，讓溢價不是口號，而是可被買方驗證的價值清單。
+              </li>
+              <li>
+                <strong>拒絕與提升價值：</strong>
+                若買方第一次報價過低，賣方不必立即讓價，可先補資料、要求第二輪書面出價，並把談判焦點從單價拉回
+                「總價、交屋、設備、修繕、稅費與付款安全」的整體交易價值。
+              </li>
+            </ul>
+          </article>
         </div>
       </section>
     </div>

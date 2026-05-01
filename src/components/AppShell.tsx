@@ -4,6 +4,7 @@ import {
   Home,
   KeyRound,
   Map,
+  Newspaper,
   ReceiptText,
 } from "lucide-react";
 import { type PropsWithChildren } from "react";
@@ -20,6 +21,7 @@ const navItems = [
   { to: "/market", label: "區域行情", icon: BarChart3, modeAware: true },
   { to: "/decision-radar", label: "決策雷達", icon: Gauge, modeAware: true },
   { to: "/land-value-tax", label: "稅費試算", icon: ReceiptText },
+  { to: "/news-policy", label: "新聞政策", icon: Newspaper },
 ];
 
 export const AppShell = ({ children }: PropsWithChildren) => {

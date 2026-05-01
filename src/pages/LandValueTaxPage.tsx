@@ -35,13 +35,21 @@ export const LandValueTaxPage = () => {
         <p>地址由估價標的帶入並鎖定；只調整稅務欄位，右側即時更新出售成本。</p>
       </section>
 
-      <section className="tax-subject-card">
-        <MapPin size={20} />
-        <div>
-          <span>估價標的</span>
-          <strong>{propertyInput.address}</strong>
-          <small>{[propertyInput.city, propertyInput.district, propertyInput.road].filter(Boolean).join(" / ")} · 地址鎖定，避免稅費試算與估價標的脫鉤。</small>
-        </div>
+      <section className="tax-top-grid">
+        <article className="tax-subject-card">
+          <MapPin size={20} />
+          <div>
+            <span>估價標的</span>
+            <strong>{propertyInput.address}</strong>
+            <small>{[propertyInput.city, propertyInput.district, propertyInput.road].filter(Boolean).join(" / ")} · 地址鎖定，避免稅費試算與估價標的脫鉤。</small>
+          </div>
+        </article>
+        <article className="tax-result-card emphasis tax-top-result">
+          <ReceiptText size={24} />
+          <span>土地增值稅試算結果</span>
+          <strong>{formatTwd(result.bestTax)}</strong>
+          <small>信心：{result.confidenceLabel}（{result.confidenceScore}/100）</small>
+        </article>
       </section>
 
       <section className="tax-mode-tabs">
@@ -88,12 +96,6 @@ export const LandValueTaxPage = () => {
         </div>
 
         <aside className="land-tax-result">
-          <article className="tax-result-card emphasis">
-            <ReceiptText size={24} />
-            <span>土地增值稅試算結果</span>
-            <strong>{formatTwd(result.bestTax)}</strong>
-            <small>信心：{result.confidenceLabel}（{result.confidenceScore}/100）</small>
-          </article>
           <article className="tax-result-card">
             <h2>計算明細</h2>
             <dl>
