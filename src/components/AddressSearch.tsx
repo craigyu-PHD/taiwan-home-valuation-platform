@@ -41,7 +41,7 @@ export const AddressSearch = ({ compact, buttonLabel = "立即估價", onSelect 
 
     if (results.length === 0) {
       setCandidates([]);
-      setMessage("找不到明確位置。請補充縣市、行政區或改用地圖手動選點。");
+      setMessage("目前找不到可辨識位置。可輸入縣市、行政區、路名、社區或地標，系統會用模糊搜尋協助定位。");
       return;
     }
 
@@ -51,7 +51,7 @@ export const AddressSearch = ({ compact, buttonLabel = "立即估價", onSelect 
     }
 
     setCandidates(results);
-    setMessage("請確認最接近的候選位置。");
+    setMessage("已用模糊搜尋找到候選位置，請選擇最接近的一筆。");
   };
 
   return (
@@ -78,7 +78,7 @@ export const AddressSearch = ({ compact, buttonLabel = "立即估價", onSelect 
             <button key={candidate.id} type="button" onClick={() => selectCandidate(candidate)}>
               <MapPin size={17} />
               <span>{candidate.label}</span>
-              <small>{candidate.source === "nominatim" ? "OSM Nominatim" : "本地範例"}</small>
+              <small>{candidate.source === "nominatim" ? "OSM / 模糊搜尋" : candidate.source === "manual" ? "模糊定位" : "本地地標"}</small>
             </button>
           ))}
         </div>

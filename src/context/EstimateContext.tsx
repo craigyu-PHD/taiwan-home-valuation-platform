@@ -2,6 +2,7 @@ import {
   createContext,
   type PropsWithChildren,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -24,6 +25,12 @@ interface EstimateContextValue {
 
 const EstimateContext = createContext<EstimateContextValue | undefined>(undefined);
 const MODE_STORAGE_KEY = "taiwan-valuation-transaction-mode";
+const ESTIMATE_STORAGE_KEY = "taiwan-valuation-current-estimate-v2";
+
+type PersistedEstimateState = {
+  propertyInput: PropertyInput;
+  selectedLocation?: LocationCandidate;
+};
 
 const readInitialMode = (): TransactionMode => {
   try {
@@ -34,18 +41,44 @@ const readInitialMode = (): TransactionMode => {
   }
 };
 
+const readInitialEstimate = (): PersistedEstimateState => {
+  const fallback = { propertyInput: createDefaultInput() };
+  try {
+    const raw = localStorage.getItem(ESTIMATE_STORAGE_KEY);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw) as Partial<PersistedEstimateState>;
+    if (!parsed.propertyInput || typeof parsed.propertyInput !== "object") return fallback;
+    return {
+      propertyInput: {
+        ...createDefaultInput(),
+        ...parsed.propertyInput,
+      },
+      selectedLocation: parsed.selectedLocation,
+    };
+  } catch {
+    return fallback;
+  }
+};
+
 const inferCommunityName = (candidate: LocationCandidate) => {
   const label = candidate.label.normalize("NFKC");
   if (/國[都度]花園/.test(label)) return "國都花園社區";
   const parenthesized = label.match(/[（(]([^）)]+社區)[）)]/);
-  return parenthesized?.[1];
+  if (parenthesized?.[1]) return parenthesized[1];
+  return label.match(/([\u4e00-\u9fa5A-Za-z0-9]{2,}(?:社區|花園|大廈|名邸|新城|山莊|公寓|華廈|苑|園))/)?.[1];
 };
 
 export const EstimateProvider = ({ children }: PropsWithChildren) => {
-  const [propertyInput, setPropertyInput] = useState<PropertyInput>(() => createDefaultInput());
-  const [selectedLocation, setSelectedLocationState] = useState<LocationCandidate | undefined>();
-  const [valuation, setValuation] = useState<ValuationResult | undefined>();
-  const [rentalValuation, setRentalValuation] = useState<RentalValuationResult | undefined>();
+  const [propertyInput, setPropertyInput] = useState<PropertyInput>(() => readInitialEstimate().propertyInput);
+  const [selectedLocation, setSelectedLocationState] = useState<LocationCandidate | undefined>(() => readInitialEstimate().selectedLocation);
+  const [valuation, setValuation] = useState<ValuationResult | undefined>(() => {
+    const initial = readInitialEstimate().propertyInput;
+    return initial.address && initial.lat && initial.lng ? estimateProperty(initial) : undefined;
+  });
+  const [rentalValuation, setRentalValuation] = useState<RentalValuationResult | undefined>(() => {
+    const initial = readInitialEstimate().propertyInput;
+    return initial.address && initial.lat && initial.lng ? estimateRental(initial) : undefined;
+  });
   const [transactionModeState, setTransactionModeState] = useState<TransactionMode>(() => readInitialMode());
   const setTransactionMode = (mode: TransactionMode) => {
     setTransactionModeState(mode);
@@ -55,6 +88,14 @@ export const EstimateProvider = ({ children }: PropsWithChildren) => {
       // Persistence is best-effort only.
     }
   };
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(ESTIMATE_STORAGE_KEY, JSON.stringify({ propertyInput, selectedLocation }));
+    } catch {
+      // Persistence is best-effort only.
+    }
+  }, [propertyInput, selectedLocation]);
 
   const value = useMemo<EstimateContextValue>(
     () => ({
@@ -69,7 +110,7 @@ export const EstimateProvider = ({ children }: PropsWithChildren) => {
         setPropertyInput((current) => {
           const next = {
             ...current,
-            communityName: inferCommunityName(candidate),
+            communityName: inferCommunityName(candidate) ?? current.communityName,
             address: candidate.label,
             city: candidate.city,
             district: candidate.district,

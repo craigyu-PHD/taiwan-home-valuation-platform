@@ -220,7 +220,7 @@ export const DecisionRadarPage = () => {
   const [openIntelGroup, setOpenIntelGroup] = useState<NearbyFeature["category"] | undefined>("transit");
   const [openSideIntelKey, setOpenSideIntelKey] = useState<string | undefined>("buyer-transit");
   const hasTarget = Boolean(propertyInput.address && propertyInput.lat && propertyInput.lng);
-  const hasPreciseTarget = hasTarget && (propertyInput.locationConfidence ?? 0) >= 0.82;
+  const hasPreciseTarget = hasTarget && (propertyInput.locationConfidence ?? 0) >= 0.72;
   const result = valuation ?? estimateProperty(propertyInput);
   const rentResult = rentalValuation ?? estimateRental(propertyInput);
   const { info: landUse, status: landUseStatus } = useLandUseInfo(
@@ -266,8 +266,8 @@ export const DecisionRadarPage = () => {
   const sellerMpp = sellerMindPrice * (confidence >= 65 ? 1.045 : 1.025);
   const buyerOpening = Math.min(buyerMindPrice * 0.955, conservativeOffer);
   const buyerCeiling = Math.min(ceilingOffer, buyerMindPrice * 1.055);
-  const overlapLow = Math.min(Math.max(buyerMindPrice, conservativeOffer), ceilingOffer);
-  const overlapHigh = Math.max(Math.min(sellerMindPrice, ceilingOffer), overlapLow);
+  const overlapLow = Math.max(conservativeOffer, Math.min(buyerMindPrice, ceilingOffer * 0.96));
+  const overlapHigh = Math.min(ceilingOffer, Math.max(overlapLow * 1.025, Math.min(sellerMindPrice, ceilingOffer)));
   const negotiationGapPct = fairOffer ? ((sellerMindPrice - buyerMindPrice) / fairOffer) * 100 : 0;
   const targetLabel = propertyInput.communityName || propertyInput.address || selectedLocation?.label || "尚未指定標的";
   const buyerUps = signals.filter((item) => item.buyerEffect === "利多").length;
@@ -281,7 +281,7 @@ export const DecisionRadarPage = () => {
         category,
         ...featureMeta[category],
         count: intel?.features.filter((item) => item.category === category).length ?? 0,
-        items: intel?.features.filter((item) => item.category === category).slice(0, 18) ?? [],
+        items: intel?.features.filter((item) => item.category === category) ?? [],
       })),
     [intel],
   );
@@ -318,8 +318,8 @@ export const DecisionRadarPage = () => {
     <>
       {!hasPreciseTarget && (
         <div className="intel-radius-note warning">
-          <strong>需要精準定位</strong>
-          <span>目前地址解析精度不足，先不抓 300 公尺節點；請在地址搜尋選擇候選位置，或到地圖估價拖曳定位點。</span>
+          <strong>需要可辨識定位</strong>
+          <span>請輸入地址、社區、地標，或到地圖估價拖曳定位點，系統才會查詢 300 公尺節點。</span>
         </div>
       )}
       {hasPreciseTarget && (
@@ -361,7 +361,11 @@ export const DecisionRadarPage = () => {
               ))}
             </ul>
           ) : (
-            <p>300 公尺內暫無此類公開節點，建議擴大範圍或實地確認。</p>
+            <p>
+              {intelStatus === "loading"
+                ? "正在查詢 300 公尺公開節點，完成後會自動更新。"
+                : "300 公尺內暫無此類公開節點，建議擴大範圍或實地確認。"}
+            </p>
           )}
         </div>
       )}
@@ -374,7 +378,7 @@ export const DecisionRadarPage = () => {
     <div className="side-intel-accordion">
       <div className="side-intel-heading">
         <strong>{title}</strong>
-        <span>{hasPreciseTarget ? "方圓 300 公尺公開節點，單次只展開一類。" : "精準定位後才會列出 300 公尺公開節點。"}</span>
+        <span>{hasPreciseTarget ? "方圓 300 公尺公開節點，單次只展開一類。" : "完成地址、社區或地標定位後才會列出 300 公尺公開節點。"}</span>
       </div>
       {!hasPreciseTarget && (
         <article className="side-intel-group open">
@@ -414,8 +418,8 @@ export const DecisionRadarPage = () => {
                   ))
                 ) : (
                   <li>
-                    <span>300 公尺內暫無此類公開節點</span>
-                    <small>建議實地確認</small>
+                    <span>{intelStatus === "loading" ? "正在查詢 300 公尺公開節點" : "300 公尺內暫無此類公開節點"}</span>
+                    <small>{intelStatus === "loading" ? "請稍候" : "建議實地確認"}</small>
                   </li>
                 )}
               </ul>

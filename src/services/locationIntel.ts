@@ -14,7 +14,7 @@ export interface LocationIntel {
   sourceUrl: string;
 }
 
-const CACHE_KEY = "taiwan-valuation-location-intel-v8";
+const CACHE_KEY = "taiwan-valuation-location-intel-v11";
 const GUODU_CENTER = { lat: 25.02247, lng: 121.29303 };
 
 type CacheMap = Record<string, LocationIntel>;
@@ -51,19 +51,18 @@ const distanceMeters = (latA: number, lngA: number, latB: number, lngB: number) 
 };
 
 const getOverpassQuery = (lat: number, lng: number, radiusMeters: number) => `
-[out:json][timeout:8];
+[out:json][timeout:12];
 (
-  node(around:${radiusMeters},${lat},${lng})["amenity"~"school|kindergarten|college|university|library"];
-  way(around:${radiusMeters},${lat},${lng})["amenity"~"school|kindergarten|college|university|library"];
-  node(around:${radiusMeters},${lat},${lng})["public_transport"~"station|platform"];
-  node(around:${radiusMeters},${lat},${lng})["railway"~"station|subway_entrance|tram_stop"];
-  node(around:${radiusMeters},${lat},${lng})["highway"="bus_stop"];
-  node(around:${radiusMeters},${lat},${lng})["leisure"="park"];
-  way(around:${radiusMeters},${lat},${lng})["leisure"="park"];
-  node(around:${radiusMeters},${lat},${lng})["shop"];
-  node(around:${radiusMeters},${lat},${lng})["amenity"~"marketplace|restaurant|cafe|bank|post_office|hospital|clinic"];
+  nwr(around:${radiusMeters},${lat},${lng})["amenity"~"school|kindergarten|college|university|library|community_centre"];
+  nwr(around:${radiusMeters},${lat},${lng})["public_transport"~"station|platform|stop_position"];
+  nwr(around:${radiusMeters},${lat},${lng})["railway"~"station|halt|subway_entrance|tram_stop|stop"];
+  nwr(around:${radiusMeters},${lat},${lng})["highway"="bus_stop"];
+  nwr(around:${radiusMeters},${lat},${lng})["leisure"~"park|garden|playground|sports_centre"];
+  nwr(around:${radiusMeters},${lat},${lng})["shop"];
+  nwr(around:${radiusMeters},${lat},${lng})["amenity"~"marketplace|restaurant|cafe|fast_food|bank|atm|post_office|pharmacy|hospital|clinic|doctors|dentist"];
+  nwr(around:${radiusMeters},${lat},${lng})["tourism"~"museum|attraction"];
 );
-out center tags 80;
+out center tags 160;
 `;
 
 const localGuoduFeatures: NearbyFeature[] = [
@@ -114,13 +113,13 @@ const mergeLocalFallback = (
 };
 
 const getCategory = (tags: Record<string, string>): NearbyFeature["category"] | undefined => {
-  if (/school|kindergarten|college|university|library/.test(tags.amenity ?? "")) return "school";
-  if (tags.public_transport || /station|subway_entrance|tram_stop/.test(tags.railway ?? "") || tags.highway === "bus_stop") {
+  if (/school|kindergarten|college|university|library|community_centre/.test(tags.amenity ?? "") || /museum|attraction/.test(tags.tourism ?? "")) return "school";
+  if (tags.public_transport || /station|halt|subway_entrance|tram_stop|stop/.test(tags.railway ?? "") || tags.highway === "bus_stop") {
     return "transit";
   }
-  if (tags.leisure === "park") return "green";
-  if (/hospital|clinic/.test(tags.amenity ?? "")) return "medical";
-  if (tags.shop || /marketplace|restaurant|cafe|bank|post_office/.test(tags.amenity ?? "")) return "retail";
+  if (/park|garden|playground|sports_centre/.test(tags.leisure ?? "")) return "green";
+  if (/hospital|clinic|doctors|dentist|pharmacy/.test(tags.amenity ?? "")) return "medical";
+  if (tags.shop || /marketplace|restaurant|cafe|fast_food|bank|atm|post_office/.test(tags.amenity ?? "")) return "retail";
   return undefined;
 };
 
@@ -128,6 +127,16 @@ const getDisplayName = (tags: Record<string, string>, fallback: string) => {
   const rawName = (tags["name:zh"] || tags.name || "").trim();
   if (!rawName || /^(various|yes|no|unknown|none)$/i.test(rawName)) return fallback;
   return rawName.length > 24 ? `${rawName.slice(0, 24)}...` : rawName;
+};
+
+const fetchWithTimeout = async (url: string, timeoutMs = 12000) => {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { headers: { accept: "application/json" }, signal: controller.signal });
+  } finally {
+    window.clearTimeout(timer);
+  }
 };
 
 export const getMajorDevelopmentSignal = (city?: string, district?: string, road?: string) => {
@@ -169,7 +178,7 @@ export const lookupLocationIntel = async (lat?: number, lng?: number, radiusMete
     for (const endpoint of endpoints) {
       const url = `${endpoint}?data=${encodeURIComponent(query)}`;
       try {
-        const nextResponse = await fetch(url, { headers: { accept: "application/json" } });
+        const nextResponse = await fetchWithTimeout(url);
         const contentType = nextResponse.headers.get("content-type") ?? "";
         if (nextResponse.ok && contentType.includes("application/json")) {
           response = nextResponse;
@@ -215,12 +224,13 @@ export const lookupLocationIntel = async (lat?: number, lng?: number, radiusMete
       retailCount: uniqueFeatures.filter((item) => item.category === "retail").length,
       medicalCount: uniqueFeatures.filter((item) => item.category === "medical").length,
       features: uniqueFeatures
-        .sort((a, b) => (a.distanceMeters ?? Number.MAX_SAFE_INTEGER) - (b.distanceMeters ?? Number.MAX_SAFE_INTEGER))
-        .slice(0, 60),
+        .sort((a, b) => (a.distanceMeters ?? Number.MAX_SAFE_INTEGER) - (b.distanceMeters ?? Number.MAX_SAFE_INTEGER)),
       sourceUrl: isNearGuodu(lat, lng) ? `${sourceUrl} + 本地公開生活圈備援清單` : sourceUrl,
     };
-    cache[cacheKey] = intel;
-    saveCache(cache);
+    if (uniqueFeatures.length) {
+      cache[cacheKey] = intel;
+      saveCache(cache);
+    }
     return intel;
   } catch {
     const fallbackFeatures = mergeLocalFallback(lat, lng, radiusMeters, []);
@@ -235,8 +245,10 @@ export const lookupLocationIntel = async (lat?: number, lng?: number, radiusMete
         ? "本地公開生活圈備援清單；正式版可接 Overpass/OSM 或政府 POI API"
         : "公開地圖節點暫時無法取得；不以其他縣市資料替代",
     };
-    cache[cacheKey] = intel;
-    saveCache(cache);
+    if (fallbackFeatures.length) {
+      cache[cacheKey] = intel;
+      saveCache(cache);
+    }
     return intel;
   }
 };

@@ -18,6 +18,7 @@ export const HomePage = () => {
   const [hasInlineResult, setHasInlineResult] = useState(false);
   const rentResult = rentalValuation ?? (propertyInput.lat && propertyInput.lng ? estimateRental(propertyInput) : undefined);
   const hasTarget = Boolean(propertyInput.address && propertyInput.lat && propertyInput.lng);
+  const shouldShowInlineResult = hasInlineResult || Boolean(valuation || rentalValuation);
 
   return (
     <div className="page home-page">
@@ -111,7 +112,7 @@ export const HomePage = () => {
         </aside>
       </section>
 
-      {hasInlineResult && (valuation || rentalValuation) && (
+      {shouldShowInlineResult && (valuation || rentalValuation) && (
         <section className="home-inline-result">
           <div className="section-heading compact-heading">
             <span className="eyebrow">同頁估價結果</span>

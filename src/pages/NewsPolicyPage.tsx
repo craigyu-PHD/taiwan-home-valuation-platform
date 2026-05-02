@@ -129,9 +129,11 @@ export const NewsPolicyPage = () => {
   return (
     <div className="page regional-news-page">
       <section className="section-heading regional-news-hero">
-        <span className="eyebrow">區域新聞 / 政策雷達</span>
-        <h1>房產新聞與政策</h1>
-        <p>依目前標的所在地區、縣市與全國範圍整理房地產新聞與政策，最新資訊排在最上方。</p>
+        <div className="regional-news-hero-copy">
+          <span className="eyebrow">區域新聞 / 政策雷達</span>
+          <h1>房產新聞與政策</h1>
+          <p>依目前標的所在地區、縣市與全國範圍整理房地產新聞與政策，最新資訊排在最上方。</p>
+        </div>
         <div className="regional-subject-card">
           <Globe2 size={22} />
           <div>

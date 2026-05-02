@@ -16,7 +16,7 @@ import { taiwanAdmin, taiwanCities } from "../data/taiwanAdmin";
 import { getBoundaryCenter, getTownBoundary } from "../services/boundaries";
 import { searchAddress } from "../services/geocode";
 import { propertyTypes, specialFactors } from "../services/valuation";
-import type { LocationCandidate, ParkingType, PropertyInput, SpecialFactor, ValuationResult } from "../types";
+import type { LocationCandidate, ParkingType, PropertyInput, SpecialFactor, ValuationResult, ValuationSourceMode } from "../types";
 import { normalizeAddressText } from "../utils/addressNormalize";
 
 interface PropertyEstimateFormProps {
@@ -57,7 +57,7 @@ export const PropertyEstimateForm = ({
   const [alley, setAlley] = useState("");
   const [number, setNumber] = useState(extractHouseNumber(propertyInput.address));
   const [floorText, setFloorText] = useState(String(propertyInput.floor ?? 10));
-  const [mode, setMode] = useState<"實價登錄" | "開價搜尋" | "智慧估價">("智慧估價");
+  const [mode, setMode] = useState<ValuationSourceMode>(propertyInput.valuationMode ?? "智慧估價");
   const [searchMode, setSearchMode] = useState<"地址搜尋" | "區域搜尋">("地址搜尋");
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [keyword, setKeyword] = useState("");
@@ -100,6 +100,7 @@ export const PropertyEstimateForm = ({
       setNumber("");
     }
     if (propertyInput.floor !== undefined) setFloorText(String(propertyInput.floor));
+    if (propertyInput.valuationMode) setMode(propertyInput.valuationMode);
   }, [
     propertyInput.address,
     propertyInput.city,
@@ -107,6 +108,7 @@ export const PropertyEstimateForm = ({
     propertyInput.road,
     propertyInput.communityName,
     propertyInput.floor,
+    propertyInput.valuationMode,
   ]);
 
   const buildAddress = () => {
@@ -153,6 +155,7 @@ export const PropertyEstimateForm = ({
       lat: candidate.lat,
       lng: candidate.lng,
       locationConfidence: candidate.confidence,
+      valuationMode: mode,
     });
     return candidate;
   };
@@ -168,6 +171,7 @@ export const PropertyEstimateForm = ({
       lng: candidate.lng,
       locationConfidence: candidate.confidence,
       floor: updateNumber(floorText),
+      valuationMode: mode,
     });
     onEstimated?.(result);
     if (!stayOnPage) navigate("/estimate/result");
@@ -202,12 +206,23 @@ export const PropertyEstimateForm = ({
             key={item}
             type="button"
             className={mode === item ? "active" : ""}
-            onClick={() => setMode(item)}
+            onClick={() => {
+              setMode(item);
+              updatePropertyInput({ valuationMode: item });
+            }}
           >
             {item}
           </button>
         ))}
       </div>
+      <p className={`valuation-mode-note ${mode === "開價搜尋" ? "ask-mode" : mode === "實價登錄" ? "transaction-mode" : "ai-mode"}`}>
+        <strong>{mode}</strong>
+        {mode === "實價登錄"
+          ? "以公開成交與可比案例為主，檢查實際成交價格區間。"
+          : mode === "開價搜尋"
+            ? "以成交資料反推合理開價帶，不把開價當成交價。"
+            : "整合成交、條件、區域與風險，輸出中立估價區間。"}
+      </p>
       <div className="search-mode-tabs">
         <button
           type="button"

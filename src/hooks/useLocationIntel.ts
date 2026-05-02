@@ -15,6 +15,7 @@ export const useLocationIntel = (lat?: number, lng?: number, radiusMeters = 1200
       return;
     }
 
+    setIntel(undefined);
     setStatus("loading");
     lookupLocationIntel(lat, lng, radiusMeters)
       .then((nextIntel) => {

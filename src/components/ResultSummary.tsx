@@ -8,7 +8,7 @@ export const ResultSummary = ({ result, compact = false }: { result: ValuationRe
   <section className={`result-summary ${compact ? "compact" : ""}`}>
     <div className="result-heading">
       <div>
-        <span className="eyebrow">估價結果</span>
+        <span className="eyebrow">估價結果{result.valuationMode ? ` / ${result.valuationMode}` : ""}</span>
         <h2>{result.status === "not-suitable" ? "不適合自動估價" : "合理價格參考區間"}</h2>
       </div>
       <ConfidenceBadge score={result.confidenceScore} level={result.confidenceLevel} />

@@ -15,6 +15,7 @@ export const useLandUseInfo = (lat?: number, lng?: number) => {
       return;
     }
 
+    setInfo(undefined);
     setStatus("loading");
     lookupLandUse(lat, lng)
       .then((nextInfo) => {

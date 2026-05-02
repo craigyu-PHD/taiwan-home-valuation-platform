@@ -7,6 +7,7 @@ import type {
   SpecialFactor,
   TransactionCase,
   ValuationResult,
+  ValuationSourceMode,
   WeightedCase,
 } from "../types";
 import { clamp, haversineMeters } from "../utils/format";
@@ -35,6 +36,7 @@ export const createDefaultInput = (): PropertyInput => ({
   condition: "未提供",
   occupancy: "未提供",
   specialFactors: [],
+  valuationMode: "智慧估價",
 });
 
 export const propertyTypes: PropertyType[] = [
@@ -344,7 +346,76 @@ const makeNotSuitable = (input: PropertyInput, cases: WeightedCase[], reasons: s
   factors: ["低信心敢拒估：特殊產權、特殊交易或非標準住宅不應硬給單一價格。"],
   methodologySummary: "系統偵測到特殊風險或資料不足，因此停止自動估價並保留可參考案例。",
   generatedAt: new Date().toISOString(),
+  valuationMode: input.valuationMode,
 });
+
+const levelForEstimatedResult = (score: number): ConfidenceLevel => {
+  if (score >= 75) return "高信心";
+  if (score >= 55) return "中信心";
+  return "低信心";
+};
+
+const withValuationMode = (result: ValuationResult, input: PropertyInput): ValuationResult => {
+  const mode: ValuationSourceMode = input.valuationMode ?? "智慧估價";
+  if (result.status === "not-suitable") return { ...result, valuationMode: mode };
+
+  if (mode === "實價登錄") {
+    return {
+      ...result,
+      valuationMode: mode,
+      reasons: [
+        `實價登錄模式：以 ${result.comparableCount} 筆公開成交欄位相容案例推估，不採用開價作為成交價。`,
+        ...result.reasons,
+      ],
+      factors: ["成交資料優先：同社區、同路段、近 12 個月與條件相近案例權重較高。", ...result.factors],
+      methodologySummary:
+        "實價登錄模式以公開成交資料為主要依據；若正式匯入內政部 Open Data，可替換原型示範資料並保留相同估價邏輯。",
+    };
+  }
+
+  if (mode === "開價搜尋") {
+    const premium = result.confidenceScore >= 75 ? 1.045 : result.confidenceScore >= 55 ? 1.035 : 1.025;
+    const highPremium = result.confidenceScore >= 75 ? 1.09 : 1.12;
+    const nextConfidence = Math.max(35, result.confidenceScore - 8);
+    const adjust = (value?: number, multiplier = 1) => (typeof value === "number" ? value * multiplier : undefined);
+    return {
+      ...result,
+      totalLowWan: adjust(result.totalLowWan, 0.98),
+      totalMedianWan: adjust(result.totalMedianWan, premium),
+      totalHighWan: adjust(result.totalHighWan, highPremium),
+      unitLowWan: adjust(result.unitLowWan, 0.98),
+      unitMedianWan: adjust(result.unitMedianWan, premium),
+      unitHighWan: adjust(result.unitHighWan, highPremium),
+      confidenceScore: nextConfidence,
+      confidenceLevel: levelForEstimatedResult(nextConfidence),
+      valuationMode: mode,
+      reasons: [
+        "開價搜尋模式：目前不接商業開價資料庫，改以成交資料反推合理開價帶，避免把開價誤認為成交價。",
+        `賣方常保留議價空間，本模式以成交中位價加上約 ${Math.round((premium - 1) * 100)}% 開價溢價作為參考。`,
+        ...result.reasons,
+      ],
+      warnings: [
+        ...result.warnings,
+        "開價搜尋結果是成交資料反推的合理開價帶，不代表房仲平台實際刊登價，也不保證可成交。",
+      ],
+      factors: [
+        "開價通常高於成交，但需回到成交證據、屋況與區域供需檢核；系統已因此降低信心分數。",
+        ...result.factors,
+      ],
+      methodologySummary:
+        "開價搜尋模式不使用付費或未授權房仲開價資料；以實價登錄成交帶、信心分數與一般議價溢價反推合理開價區間。",
+    };
+  }
+
+  return {
+    ...result,
+    valuationMode: mode,
+    reasons: [
+      "智慧估價模式：同時檢核成交案例、地址定位、物件條件、資料完整度與特殊風險。",
+      ...result.reasons,
+    ],
+  };
+};
 
 const fallbackComparableCases = (
   input: PropertyInput,
@@ -529,7 +600,7 @@ export const estimateProperty = (
       : "地址路段尚未完整解析，因此以距離、行政區與產品條件比對。",
   ];
 
-  return {
+  return withValuationMode({
     status: lowConfidence ? "low-confidence" : "estimated",
     totalLowWan: totalLow,
     totalMedianWan: totalMedian,
@@ -558,7 +629,7 @@ export const estimateProperty = (
     methodologySummary:
       "以實價登錄成交資料為主，依同社區/同路段/距離、交易時間、建物型態、坪數、屋齡、樓層與車位條件加權，輸出價格區間而非單一價格。",
     generatedAt: new Date().toISOString(),
-  };
+  }, input);
 };
 
 export const getNearbyTransactions = (

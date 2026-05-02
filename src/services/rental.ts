@@ -115,6 +115,7 @@ export const getNearbyRentalReferences = (lat: number, lng: number, radiusMeters
       condition: "一般",
       occupancy: "出租中",
       specialFactors: [],
+      valuationMode: "智慧估價",
     }));
 
 export const getRentalMarketStats = (city: string, district: string): RentalMarketStats[] =>

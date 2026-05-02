@@ -6899,6 +6899,14 @@ body {
   font-size: 34px;
 }
 
+.site-nav {
+  scrollbar-width: none;
+}
+
+.site-nav::-webkit-scrollbar {
+  display: none;
+}
+
 .device-mobile .regional-content-layout,
 .device-mobile .tax-top-grid {
   width: calc(100% - 16px);
@@ -6924,4 +6932,141 @@ body {
 .device-mobile .confidence-ring {
   width: 58px;
   height: 58px;
+}
+
+/* Final UX pass: fuzzy-search states and compact top panels */
+.valuation-mode-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(176, 199, 224, 0.72);
+  border-radius: 14px;
+  color: #4a6078;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(242, 248, 255, 0.82));
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.valuation-mode-note strong {
+  flex: 0 0 auto;
+  color: #073b86;
+  font-size: 14px;
+  font-weight: 950;
+}
+
+.valuation-mode-note.ask-mode {
+  border-color: rgba(245, 158, 11, 0.28);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(255, 248, 236, 0.9)),
+    radial-gradient(circle at 100% 0, rgba(245, 158, 11, 0.14), transparent 38%);
+}
+
+.valuation-mode-note.ai-mode {
+  border-color: rgba(15, 138, 131, 0.25);
+}
+
+.regional-news-page .section-heading.regional-news-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 360px);
+  gap: 18px;
+  min-height: 0 !important;
+  align-items: center;
+  padding: 18px 20px;
+}
+
+.regional-news-hero-copy {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.regional-news-hero h1 {
+  margin: 0;
+  font-size: clamp(34px, 4vw, 52px);
+  line-height: 1.05;
+}
+
+.regional-news-hero p {
+  max-width: 760px;
+  margin: 0;
+}
+
+.regional-subject-card {
+  align-self: center;
+  min-height: 0;
+  padding: 14px 16px;
+  border-radius: 18px;
+}
+
+.regional-subject-card strong {
+  font-size: clamp(24px, 2.6vw, 34px);
+  line-height: 1.08;
+}
+
+.land-tax-page .section-heading.tax-heading {
+  min-height: 0 !important;
+  width: min(1380px, calc(100% - 30px));
+  margin: 18px auto 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.tax-top-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 380px);
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.tax-subject-card {
+  min-height: 0;
+  padding: 16px 18px;
+}
+
+.tax-subject-card strong {
+  font-size: clamp(22px, 2.5vw, 30px);
+  line-height: 1.12;
+}
+
+.tax-top-result {
+  min-height: 0;
+  padding: 18px 20px;
+}
+
+.tax-top-result strong {
+  font-size: clamp(32px, 3.8vw, 48px);
+  line-height: 1;
+}
+
+.land-use-badge.compact {
+  gap: 10px;
+  padding: 12px 14px;
+}
+
+.land-use-badge.compact strong {
+  font-size: 16px;
+}
+
+.land-use-badge.compact small {
+  line-height: 1.45;
+}
+
+.device-mobile .valuation-mode-note {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.device-mobile .regional-news-page .section-heading.regional-news-hero,
+.device-mobile .tax-top-grid {
+  grid-template-columns: 1fr;
+  gap: 12px;
+  width: calc(100% - 16px);
+}
+
+.device-mobile .regional-news-hero h1 {
+  font-size: 34px;
 }
