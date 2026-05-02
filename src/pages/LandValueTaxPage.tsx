@@ -40,8 +40,12 @@ export const LandValueTaxPage = () => {
           <MapPin size={20} />
           <div>
             <span>估價標的</span>
-            <strong>{propertyInput.address}</strong>
-            <small>{[propertyInput.city, propertyInput.district, propertyInput.road].filter(Boolean).join(" / ")} · 地址鎖定，避免稅費試算與估價標的脫鉤。</small>
+            <strong>{propertyInput.address || "尚未選定估價標的"}</strong>
+            <small>
+              {propertyInput.address
+                ? `${[propertyInput.city, propertyInput.district, propertyInput.road].filter(Boolean).join(" / ")} · 地址鎖定，避免稅費試算與估價標的脫鉤。`
+                : "請先回地址估價或地圖估價選定標的；稅務欄位仍可先試填。"}
+            </small>
           </div>
         </article>
         <article className="tax-result-card emphasis tax-top-result">

@@ -219,10 +219,19 @@ export const DecisionRadarPage = () => {
   const { propertyInput, selectedLocation, valuation, rentalValuation, transactionMode } = useEstimate();
   const [openIntelGroup, setOpenIntelGroup] = useState<NearbyFeature["category"] | undefined>("transit");
   const [openSideIntelKey, setOpenSideIntelKey] = useState<string | undefined>("buyer-transit");
+  const hasTarget = Boolean(propertyInput.address && propertyInput.lat && propertyInput.lng);
+  const hasPreciseTarget = hasTarget && (propertyInput.locationConfidence ?? 0) >= 0.82;
   const result = valuation ?? estimateProperty(propertyInput);
   const rentResult = rentalValuation ?? estimateRental(propertyInput);
-  const { info: landUse, status: landUseStatus } = useLandUseInfo(propertyInput.lat, propertyInput.lng);
-  const { intel, status: intelStatus } = useLocationIntel(propertyInput.lat, propertyInput.lng, 300);
+  const { info: landUse, status: landUseStatus } = useLandUseInfo(
+    hasPreciseTarget ? propertyInput.lat : undefined,
+    hasPreciseTarget ? propertyInput.lng : undefined,
+  );
+  const { intel, status: intelStatus } = useLocationIntel(
+    hasPreciseTarget ? propertyInput.lat : undefined,
+    hasPreciseTarget ? propertyInput.lng : undefined,
+    300,
+  );
   const unitMedian = result.unitMedianWan ?? 0;
   const area = propertyInput.areaPing ?? 30;
   const confidence = result.confidenceScore;
@@ -307,6 +316,14 @@ export const DecisionRadarPage = () => {
 
   const renderIntelPanel = () => (
     <>
+      {!hasPreciseTarget && (
+        <div className="intel-radius-note warning">
+          <strong>需要精準定位</strong>
+          <span>目前地址解析精度不足，先不抓 300 公尺節點；請在地址搜尋選擇候選位置，或到地圖估價拖曳定位點。</span>
+        </div>
+      )}
+      {hasPreciseTarget && (
+        <>
       <div className="intel-radius-note">
         <strong>300 公尺即時統計</strong>
         <span>點擊項目可展開明細；資料來自公開地圖節點，正式判斷仍需現場確認。</span>
@@ -348,6 +365,8 @@ export const DecisionRadarPage = () => {
           )}
         </div>
       )}
+        </>
+      )}
     </>
   );
 
@@ -355,9 +374,20 @@ export const DecisionRadarPage = () => {
     <div className="side-intel-accordion">
       <div className="side-intel-heading">
         <strong>{title}</strong>
-        <span>方圓 300 公尺公開節點，單次只展開一類。</span>
+        <span>{hasPreciseTarget ? "方圓 300 公尺公開節點，單次只展開一類。" : "精準定位後才會列出 300 公尺公開節點。"}</span>
       </div>
-      {featureGroups.map((group) => {
+      {!hasPreciseTarget && (
+        <article className="side-intel-group open">
+          <ul>
+            <li>
+              <span>目前定位精度不足，暫不列入周邊節點</span>
+              <small>請用地圖校正</small>
+            </li>
+          </ul>
+        </article>
+      )}
+      {hasPreciseTarget &&
+        featureGroups.map((group) => {
         const Icon = iconMap[group.icon];
         const key = `${side}-${group.category}`;
         const isOpen = openSideIntelKey === key;
@@ -392,9 +422,30 @@ export const DecisionRadarPage = () => {
             )}
           </article>
         );
-      })}
+        })}
     </div>
   );
+
+  if (!hasTarget) {
+    return (
+      <div className="page decision-page">
+        <section className="section-heading">
+          <span className="eyebrow">第四分頁 / 決策雷達</span>
+          <h1>先鎖定標的，再分析買賣或租屋決策</h1>
+          <p>請輸入地址或到地圖估價選點。未選定標的前，系統不會套用任何範例社區，也不會輸出價格或周邊判讀。</p>
+          <div className="decision-control-row">
+            <ModeSwitch />
+            <AddressSearch compact buttonLabel="更新標的" onSelect={() => undefined} />
+          </div>
+        </section>
+        <section className="empty-state decision-empty-state">
+          <MapPinned size={28} />
+          <h2>尚未選定估價標的</h2>
+          <p>輸入臺灣任一地址或社區名稱後，決策雷達會同步建立買方、賣方或租屋雙方的心理價位與談判策略。</p>
+        </section>
+      </div>
+    );
+  }
 
   if (transactionMode === "rent") {
     const tenantTarget = rentResult.monthlyMedianTwd ? rentResult.monthlyMedianTwd * (riskScore >= 55 ? 0.92 : 0.97) : undefined;
@@ -453,7 +504,12 @@ export const DecisionRadarPage = () => {
               <MapPinned size={20} />
               <h2>標的與租屋條件</h2>
             </div>
-            <LandUseBadge lat={propertyInput.lat} lng={propertyInput.lng} compact />
+            <LandUseBadge
+              lat={propertyInput.lat}
+              lng={propertyInput.lng}
+              locationConfidence={propertyInput.locationConfidence}
+              compact
+            />
             {renderIntelPanel()}
           </article>
         </section>
@@ -582,7 +638,12 @@ export const DecisionRadarPage = () => {
             <MapPinned size={20} />
             <h2>目前標的與外部條件</h2>
           </div>
-          <LandUseBadge lat={propertyInput.lat} lng={propertyInput.lng} compact />
+          <LandUseBadge
+            lat={propertyInput.lat}
+            lng={propertyInput.lng}
+            locationConfidence={propertyInput.locationConfidence}
+            compact
+          />
           {renderIntelPanel()}
           <p>
             {landUseStatus === "loading" || intelStatus === "loading"

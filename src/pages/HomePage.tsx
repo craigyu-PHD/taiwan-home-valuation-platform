@@ -16,7 +16,8 @@ import { formatUnitWan, formatWan } from "../utils/format";
 export const HomePage = () => {
   const { propertyInput, valuation, rentalValuation, transactionMode } = useEstimate();
   const [hasInlineResult, setHasInlineResult] = useState(false);
-  const rentResult = rentalValuation ?? estimateRental(propertyInput);
+  const rentResult = rentalValuation ?? (propertyInput.lat && propertyInput.lng ? estimateRental(propertyInput) : undefined);
+  const hasTarget = Boolean(propertyInput.address && propertyInput.lat && propertyInput.lng);
 
   return (
     <div className="page home-page">
@@ -48,7 +49,12 @@ export const HomePage = () => {
             submitLabel={transactionMode === "sale" ? "立刻估價" : "立刻看租金"}
             onEstimated={() => setHasInlineResult(true)}
           />
-          <LandUseBadge lat={propertyInput.lat} lng={propertyInput.lng} compact />
+          <LandUseBadge
+            lat={propertyInput.lat}
+            lng={propertyInput.lng}
+            locationConfidence={propertyInput.locationConfidence}
+            compact
+          />
           <div className="hero-actions">
             <NavLink className="secondary-button" to="/estimate/map">
               <MapPinned size={18} />
@@ -62,26 +68,30 @@ export const HomePage = () => {
             <h2>{transactionMode === "sale" ? "目前標的與估價狀態" : "目前標的與租金狀態"}</h2>
             <div className="target-brief-card">
               <span>目前標的</span>
-              <strong>{propertyInput.communityName || propertyInput.address}</strong>
-              <small>{[propertyInput.city, propertyInput.district, propertyInput.road].filter(Boolean).join(" / ")}</small>
+              <strong>{hasTarget ? propertyInput.communityName || propertyInput.address : "尚未選定標的"}</strong>
+              <small>{hasTarget ? [propertyInput.city, propertyInput.district, propertyInput.road].filter(Boolean).join(" / ") : "請先輸入地址或使用地圖選點"}</small>
             </div>
           </div>
           <div className="hero-metrics-grid">
             <div className="panel-stat">
               <span>{transactionMode === "sale" ? "參考中位價" : "參考月租"}</span>
-              <strong>{transactionMode === "sale" ? formatWan(valuation?.totalMedianWan) : `${Math.round((rentResult.monthlyMedianTwd ?? 0) / 1000).toLocaleString("zh-TW")}k`}</strong>
+              <strong>
+                {transactionMode === "sale"
+                  ? valuation ? formatWan(valuation.totalMedianWan) : "尚未估價"
+                  : rentResult ? `${Math.round((rentResult.monthlyMedianTwd ?? 0) / 1000).toLocaleString("zh-TW")}k` : "尚未估價"}
+              </strong>
             </div>
             <div className="panel-stat muted">
               <span>{transactionMode === "sale" ? "單價區間" : "坪租區間"}</span>
               <strong>
                 {transactionMode === "sale"
-                  ? `${formatUnitWan(valuation?.unitLowWan)} - ${formatUnitWan(valuation?.unitHighWan)}`
-                  : `${rentResult.rentPerPingLowTwd ?? 0} - ${rentResult.rentPerPingHighTwd ?? 0} 元/坪`}
+                  ? valuation ? `${formatUnitWan(valuation.unitLowWan)} - ${formatUnitWan(valuation.unitHighWan)}` : "等待地址"
+                  : rentResult ? `${rentResult.rentPerPingLowTwd ?? 0} - ${rentResult.rentPerPingHighTwd ?? 0} 元/坪` : "等待地址"}
               </strong>
             </div>
             <div className="confidence-strip">
               <span>信心分數</span>
-              <strong>{transactionMode === "sale" ? valuation?.confidenceScore ?? 0 : rentResult.confidenceScore}/100</strong>
+              <strong>{transactionMode === "sale" ? valuation?.confidenceScore ?? "--" : rentResult?.confidenceScore ?? "--"}/100</strong>
             </div>
           </div>
           <div className="home-tool-grid">
@@ -114,8 +124,8 @@ export const HomePage = () => {
             </>
           ) : (
             <>
-              <RentalSummary result={rentResult} compact />
-              <RentalReferenceList cases={rentResult.referencesUsed.slice(0, 5)} />
+              {rentResult && <RentalSummary result={rentResult} compact />}
+              {rentResult && <RentalReferenceList cases={rentResult.referencesUsed.slice(0, 5)} />}
             </>
           )}
         </section>

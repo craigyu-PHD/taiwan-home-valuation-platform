@@ -2,7 +2,7 @@ import { taiwanPlaceCandidates } from "../data/taiwanPlaces";
 import type { LocationCandidate } from "../types";
 import { getAddressSearchVariants, normalizeAddressText } from "../utils/addressNormalize";
 
-const CACHE_KEY = "taiwan-valuation-geocode-cache-v1";
+const CACHE_KEY = "taiwan-valuation-geocode-cache-v2";
 const REVERSE_CACHE_KEY = "taiwan-valuation-reverse-geocode-cache-v1";
 const LAST_REQUEST_KEY = "taiwan-valuation-geocode-last-request";
 const MIN_REQUEST_GAP_MS = 1100;
@@ -46,7 +46,7 @@ const localCandidates = (query: string) => {
   const queryVariants = getAddressSearchVariants(query);
   if (!queryVariants.length) return [];
   const isGuoduQuery = queryVariants.some(
-    (variant) => /國[都度]花園/.test(variant) || (/莊敬路/.test(variant) && /103/.test(variant)),
+    (variant) => /國[都度]花園/.test(variant),
   );
   const directMatches = isGuoduQuery
     ? taiwanPlaceCandidates.filter((candidate) => candidate.id === "local-taoyuan-guodu")
@@ -55,13 +55,37 @@ const localCandidates = (query: string) => {
     const haystack = normalizeAddressText(
       `${candidate.label}${candidate.city ?? ""}${candidate.district ?? ""}${candidate.road ?? ""}`,
     );
+    const city = normalizeAddressText(candidate.city ?? "");
+    const district = normalizeAddressText(candidate.district ?? "");
     const road = normalizeAddressText(candidate.road ?? "");
     return queryVariants.some((normalizedQuery) => {
-      return haystack.includes(normalizedQuery) || normalizedQuery.includes(road);
+      if (normalizedQuery.length < 4) return false;
+      const exactKnownPlace = haystack.includes(normalizedQuery) || normalizedQuery.includes(haystack);
+      const sameAdmin =
+        city.length > 0 &&
+        district.length > 0 &&
+        normalizedQuery.includes(city) &&
+        normalizedQuery.includes(district);
+      const roadMatch = sameAdmin && road.length >= 4 && normalizedQuery.includes(road);
+      return exactKnownPlace || roadMatch;
     });
   }).reduce<LocationCandidate[]>((items, candidate) => (
     items.some((item) => item.id === candidate.id) ? items : [...items, candidate]
   ), directMatches);
+};
+
+const hasStrongLocalMatch = (query: string, local: LocationCandidate[]) => {
+  const normalizedQuery = normalizeAddressText(query);
+  return local.some((candidate) => {
+    const normalizedLabel = normalizeAddressText(candidate.label);
+    const normalizedRoad = normalizeAddressText(candidate.road ?? "");
+    return (
+      normalizedLabel.includes(normalizedQuery) ||
+      normalizedQuery.includes(normalizedLabel) ||
+      (/國[都度]花園/.test(normalizedQuery) && /國都花園/.test(normalizedLabel)) ||
+      (normalizedRoad.length >= 4 && normalizedQuery.includes(normalizedRoad) && normalizedQuery.length <= normalizedRoad.length + 4)
+    );
+  });
 };
 
 const waitForRateLimit = async () => {
@@ -83,7 +107,7 @@ export const searchAddress = async (query: string): Promise<LocationCandidate[]>
   if (cache[cacheKey]) return cache[cacheKey];
 
   const local = localCandidates(trimmed);
-  if (local.length > 0 || trimmed.length < 5) {
+  if (trimmed.length < 5 || (local.length > 0 && hasStrongLocalMatch(trimmed, local))) {
     cache[cacheKey] = local;
     saveCache(cache);
     return local;
@@ -128,7 +152,8 @@ export const searchAddress = async (query: string): Promise<LocationCandidate[]>
       source: "nominatim",
     }));
 
-    const results = [...local, ...remote].slice(0, 6);
+    const hasStrongLocal = local.length > 0 && hasStrongLocalMatch(trimmed, local);
+    const results = (hasStrongLocal ? [...local, ...remote] : [...remote, ...local]).slice(0, 6);
     cache[cacheKey] = results;
     saveCache(cache);
     return results;

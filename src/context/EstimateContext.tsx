@@ -18,6 +18,7 @@ interface EstimateContextValue {
   setTransactionMode: (mode: TransactionMode) => void;
   setSelectedLocation: (candidate: LocationCandidate) => void;
   updatePropertyInput: (updates: Partial<PropertyInput>) => void;
+  resetEstimate: () => void;
   runValuation: (updates?: Partial<PropertyInput>) => ValuationResult;
 }
 
@@ -33,25 +34,18 @@ const readInitialMode = (): TransactionMode => {
   }
 };
 
+const inferCommunityName = (candidate: LocationCandidate) => {
+  const label = candidate.label.normalize("NFKC");
+  if (/國[都度]花園/.test(label)) return "國都花園社區";
+  const parenthesized = label.match(/[（(]([^）)]+社區)[）)]/);
+  return parenthesized?.[1];
+};
+
 export const EstimateProvider = ({ children }: PropsWithChildren) => {
   const [propertyInput, setPropertyInput] = useState<PropertyInput>(() => createDefaultInput());
-  const [selectedLocation, setSelectedLocationState] = useState<LocationCandidate | undefined>({
-    id: "default",
-    label: "桃園市桃園區莊敬路二段 103 號（國都花園社區）",
-    city: "桃園市",
-    district: "桃園區",
-    road: "莊敬路二段",
-    lat: 25.02247,
-    lng: 121.29303,
-    confidence: 0.9,
-    source: "local",
-  });
-  const [valuation, setValuation] = useState<ValuationResult | undefined>(() =>
-    estimateProperty(createDefaultInput()),
-  );
-  const [rentalValuation, setRentalValuation] = useState<RentalValuationResult | undefined>(() =>
-    estimateRental(createDefaultInput()),
-  );
+  const [selectedLocation, setSelectedLocationState] = useState<LocationCandidate | undefined>();
+  const [valuation, setValuation] = useState<ValuationResult | undefined>();
+  const [rentalValuation, setRentalValuation] = useState<RentalValuationResult | undefined>();
   const [transactionModeState, setTransactionModeState] = useState<TransactionMode>(() => readInitialMode());
   const setTransactionMode = (mode: TransactionMode) => {
     setTransactionModeState(mode);
@@ -75,9 +69,7 @@ export const EstimateProvider = ({ children }: PropsWithChildren) => {
         setPropertyInput((current) => {
           const next = {
             ...current,
-            communityName: candidate.label.includes("國都花園") || candidate.label.includes("國度花園")
-              ? "國都花園社區"
-              : undefined,
+            communityName: inferCommunityName(candidate),
             address: candidate.label,
             city: candidate.city,
             district: candidate.district,
@@ -93,6 +85,13 @@ export const EstimateProvider = ({ children }: PropsWithChildren) => {
       },
       updatePropertyInput: (updates) => {
         setPropertyInput((current) => ({ ...current, ...updates }));
+      },
+      resetEstimate: () => {
+        const next = createDefaultInput();
+        setPropertyInput(next);
+        setSelectedLocationState(undefined);
+        setValuation(undefined);
+        setRentalValuation(undefined);
       },
       runValuation: (updates) => {
         const next = { ...propertyInput, ...updates };

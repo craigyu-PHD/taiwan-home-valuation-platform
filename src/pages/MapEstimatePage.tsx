@@ -26,6 +26,7 @@ export const MapEstimatePage = () => {
   const [boundary, setBoundary] = useState<BoundaryFeature | undefined>();
   const [locatorStatus, setLocatorStatus] = useState("搜尋地址，或直接拖曳地圖上的小水豚到目標位置。");
 
+  const hasTarget = Boolean(propertyInput.address && propertyInput.lat && propertyInput.lng);
   const center: [number, number] = [propertyInput.lat ?? 23.8, propertyInput.lng ?? 121.0];
   useEffect(() => {
     getTownBoundary(propertyInput.city, propertyInput.district).then(setBoundary).catch(() => setBoundary(undefined));
@@ -36,8 +37,8 @@ export const MapEstimatePage = () => {
       : getNearbyRentalReferences(center[0], center[1], 3500, propertyInput);
   }, [center, propertyInput, transactionMode]);
 
-  const preview = valuation ?? estimateProperty(propertyInput, demoTransactions);
-  const rentPreview = rentalValuation ?? estimateRental(propertyInput, demoTransactions);
+  const preview = valuation ?? (hasTarget ? estimateProperty(propertyInput, demoTransactions) : undefined);
+  const rentPreview = rentalValuation ?? (hasTarget ? estimateRental(propertyInput, demoTransactions) : undefined);
 
   const applyValuationForCandidate = (candidate: LocationCandidate) => {
     setSelectedLocation(candidate);
@@ -145,20 +146,33 @@ export const MapEstimatePage = () => {
           </button>
           <div className="map-result-context">
             <span>目前定位</span>
-            <strong>{propertyInput.address}</strong>
+            <strong>{hasTarget ? propertyInput.address : "尚未選定標的"}</strong>
             <small>{locatorStatus}</small>
           </div>
-          <LandUseBadge lat={propertyInput.lat} lng={propertyInput.lng} compact />
+          <LandUseBadge
+            lat={propertyInput.lat}
+            lng={propertyInput.lng}
+            locationConfidence={propertyInput.locationConfidence}
+            compact
+          />
           {transactionMode === "sale" ? (
-            <>
-              <ResultSummary result={preview} compact />
-              <TransactionList cases={preview.casesUsed.slice(0, 5)} />
-            </>
+            preview ? (
+              <>
+                <ResultSummary result={preview} compact />
+                <TransactionList cases={preview.casesUsed.slice(0, 5)} />
+              </>
+            ) : (
+              <section className="empty-state">請先搜尋地址、使用目前位置，或把小水豚拖到地圖上的目標位置。</section>
+            )
           ) : (
-            <>
-              <RentalSummary result={rentPreview} compact />
-              <RentalReferenceList cases={rentPreview.referencesUsed.slice(0, 5)} />
-            </>
+            rentPreview ? (
+              <>
+                <RentalSummary result={rentPreview} compact />
+                <RentalReferenceList cases={rentPreview.referencesUsed.slice(0, 5)} />
+              </>
+            ) : (
+              <section className="empty-state">請先定位標的，系統才會推估租屋行情。</section>
+            )
           )}
         </aside>
       </section>

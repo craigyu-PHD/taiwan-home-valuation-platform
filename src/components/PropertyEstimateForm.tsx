@@ -15,7 +15,7 @@ import { useEstimate } from "../context/EstimateContext";
 import { taiwanAdmin, taiwanCities } from "../data/taiwanAdmin";
 import { getBoundaryCenter, getTownBoundary } from "../services/boundaries";
 import { searchAddress } from "../services/geocode";
-import { createDefaultInput, propertyTypes, specialFactors } from "../services/valuation";
+import { propertyTypes, specialFactors } from "../services/valuation";
 import type { LocationCandidate, ParkingType, PropertyInput, SpecialFactor, ValuationResult } from "../types";
 import { normalizeAddressText } from "../utils/addressNormalize";
 
@@ -27,6 +27,7 @@ interface PropertyEstimateFormProps {
 }
 
 const updateNumber = (value: string) => (value === "" ? undefined : Number(value));
+const FALLBACK_CITY = "臺北市";
 const splitRoadAndSection = (value?: string) => {
   const normalized = value?.normalize("NFKC").trim() ?? "";
   const match = normalized.match(/^(.*?)([一二三四五六七八九十0-9]+)段$/);
@@ -45,12 +46,12 @@ export const PropertyEstimateForm = ({
   onEstimated,
 }: PropertyEstimateFormProps) => {
   const navigate = useNavigate();
-  const { propertyInput, setSelectedLocation, updatePropertyInput, runValuation } = useEstimate();
+  const { propertyInput, setSelectedLocation, updatePropertyInput, resetEstimate, runValuation } = useEstimate();
   const initialRoad = splitRoadAndSection(propertyInput.road);
-  const [city, setCity] = useState(propertyInput.city ?? "臺北市");
+  const [city, setCity] = useState(propertyInput.city ?? FALLBACK_CITY);
   const districts = useMemo(() => taiwanAdmin[city as keyof typeof taiwanAdmin] ?? [], [city]);
   const [district, setDistrict] = useState(propertyInput.district ?? districts[0] ?? "");
-  const [road, setRoad] = useState(initialRoad.roadName || "莊敬路");
+  const [road, setRoad] = useState(initialRoad.roadName);
   const [section, setSection] = useState(initialRoad.sectionText);
   const [lane, setLane] = useState("");
   const [alley, setAlley] = useState("");
@@ -68,18 +69,39 @@ export const PropertyEstimateForm = ({
   }, [district, districts]);
 
   useEffect(() => {
-    if (propertyInput.city) setCity(propertyInput.city);
-    if (propertyInput.district) setDistrict(propertyInput.district);
+    if (propertyInput.city) {
+      setCity(propertyInput.city);
+    } else if (!propertyInput.address) {
+      setCity(FALLBACK_CITY);
+    }
+    if (propertyInput.district) {
+      setDistrict(propertyInput.district);
+    } else if (!propertyInput.address) {
+      const fallbackDistricts = taiwanAdmin[FALLBACK_CITY as keyof typeof taiwanAdmin] ?? [];
+      setDistrict(fallbackDistricts[0] ?? "");
+    }
     if (propertyInput.road) {
       const nextRoad = splitRoadAndSection(propertyInput.road);
       setRoad(nextRoad.roadName);
       setSection(nextRoad.sectionText);
+    } else if (!propertyInput.address) {
+      setRoad("");
+      setSection("");
     }
-    if (propertyInput.communityName) setKeyword(propertyInput.communityName);
+    if (propertyInput.communityName) {
+      setKeyword(propertyInput.communityName);
+    } else if (!propertyInput.address) {
+      setKeyword("");
+    }
     const nextNumber = extractHouseNumber(propertyInput.address);
-    if (nextNumber) setNumber(nextNumber);
+    if (nextNumber) {
+      setNumber(nextNumber);
+    } else if (!propertyInput.address) {
+      setNumber("");
+    }
     if (propertyInput.floor !== undefined) setFloorText(String(propertyInput.floor));
   }, [
+    propertyInput.address,
     propertyInput.city,
     propertyInput.district,
     propertyInput.road,
@@ -152,29 +174,17 @@ export const PropertyEstimateForm = ({
   };
 
   const reset = () => {
-    const defaults = createDefaultInput();
-    const defaultRoad = splitRoadAndSection(defaults.road);
-    setCity(defaults.city ?? "桃園市");
-    setDistrict(defaults.district ?? "桃園區");
-    setRoad(defaultRoad.roadName);
-    setSection(defaultRoad.sectionText);
+    const fallbackDistricts = taiwanAdmin[FALLBACK_CITY as keyof typeof taiwanAdmin] ?? [];
+    setCity(FALLBACK_CITY);
+    setDistrict(fallbackDistricts[0] ?? "");
+    setRoad("");
+    setSection("");
     setLane("");
     setAlley("");
-    setNumber(extractHouseNumber(defaults.address));
-    setFloorText(String(defaults.floor ?? ""));
-    setKeyword(defaults.communityName ?? "");
-    setSelectedLocation({
-      id: "default-reset",
-      label: defaults.address,
-      city: defaults.city,
-      district: defaults.district,
-      road: defaults.road,
-      lat: defaults.lat ?? 25.02247,
-      lng: defaults.lng ?? 121.29303,
-      confidence: defaults.locationConfidence ?? 0.9,
-      source: "local",
-    });
-    updatePropertyInput(defaults);
+    setNumber("");
+    setFloorText("");
+    setKeyword("");
+    resetEstimate();
   };
 
   const toggleSpecialFactor = (factor: SpecialFactor) => {

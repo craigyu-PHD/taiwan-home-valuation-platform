@@ -14,7 +14,7 @@ export interface LocationIntel {
   sourceUrl: string;
 }
 
-const CACHE_KEY = "taiwan-valuation-location-intel-v7";
+const CACHE_KEY = "taiwan-valuation-location-intel-v8";
 const GUODU_CENTER = { lat: 25.02247, lng: 121.29303 };
 
 type CacheMap = Record<string, LocationIntel>;
@@ -156,22 +156,6 @@ export const lookupLocationIntel = async (lat?: number, lng?: number, radiusMete
   const cache = loadCache();
   const cacheKey = getCacheKey(lat, lng, radiusMeters);
   if (cache[cacheKey]) return cache[cacheKey];
-  if (isNearGuodu(lat, lng) && radiusMeters <= 400) {
-    const fallbackFeatures = mergeLocalFallback(lat, lng, radiusMeters, [])
-      .sort((a, b) => (a.distanceMeters ?? 9999) - (b.distanceMeters ?? 9999));
-    const intel: LocationIntel = {
-      schoolCount: fallbackFeatures.filter((item) => item.category === "school").length,
-      transitCount: fallbackFeatures.filter((item) => item.category === "transit").length,
-      greenCount: fallbackFeatures.filter((item) => item.category === "green").length,
-      retailCount: fallbackFeatures.filter((item) => item.category === "retail").length,
-      medicalCount: fallbackFeatures.filter((item) => item.category === "medical").length,
-      features: fallbackFeatures,
-      sourceUrl: "本地公開生活圈備援清單；正式版可接 Overpass/OSM 或政府 POI API",
-    };
-    cache[cacheKey] = intel;
-    saveCache(cache);
-    return intel;
-  }
 
   const query = getOverpassQuery(lat, lng, radiusMeters);
   const endpoints = [
@@ -184,12 +168,16 @@ export const lookupLocationIntel = async (lat?: number, lng?: number, radiusMete
     let response: Response | undefined;
     for (const endpoint of endpoints) {
       const url = `${endpoint}?data=${encodeURIComponent(query)}`;
-      const nextResponse = await fetch(url, { headers: { accept: "application/json" } });
-      const contentType = nextResponse.headers.get("content-type") ?? "";
-      if (nextResponse.ok && contentType.includes("application/json")) {
-        response = nextResponse;
-        sourceUrl = url;
-        break;
+      try {
+        const nextResponse = await fetch(url, { headers: { accept: "application/json" } });
+        const contentType = nextResponse.headers.get("content-type") ?? "";
+        if (nextResponse.ok && contentType.includes("application/json")) {
+          response = nextResponse;
+          sourceUrl = url;
+          break;
+        }
+      } catch {
+        // Try the next public Overpass mirror.
       }
     }
     if (!response) throw new Error("Overpass query failed");
@@ -236,7 +224,6 @@ export const lookupLocationIntel = async (lat?: number, lng?: number, radiusMete
     return intel;
   } catch {
     const fallbackFeatures = mergeLocalFallback(lat, lng, radiusMeters, []);
-    if (!fallbackFeatures.length) return undefined;
     const intel: LocationIntel = {
       schoolCount: fallbackFeatures.filter((item) => item.category === "school").length,
       transitCount: fallbackFeatures.filter((item) => item.category === "transit").length,
@@ -244,7 +231,9 @@ export const lookupLocationIntel = async (lat?: number, lng?: number, radiusMete
       retailCount: fallbackFeatures.filter((item) => item.category === "retail").length,
       medicalCount: fallbackFeatures.filter((item) => item.category === "medical").length,
       features: fallbackFeatures.sort((a, b) => (a.distanceMeters ?? 9999) - (b.distanceMeters ?? 9999)),
-      sourceUrl: "本地公開生活圈備援清單；正式版可接 Overpass/OSM 或政府 POI API",
+      sourceUrl: fallbackFeatures.length
+        ? "本地公開生活圈備援清單；正式版可接 Overpass/OSM 或政府 POI API"
+        : "公開地圖節點暫時無法取得；不以其他縣市資料替代",
     };
     cache[cacheKey] = intel;
     saveCache(cache);

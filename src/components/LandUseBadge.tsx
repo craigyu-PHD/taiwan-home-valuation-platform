@@ -4,18 +4,25 @@ import { useLandUseInfo } from "../hooks/useLandUseInfo";
 interface LandUseBadgeProps {
   lat?: number;
   lng?: number;
+  locationConfidence?: number;
   compact?: boolean;
   className?: string;
 }
 
-export const LandUseBadge = ({ lat, lng, compact = false, className }: LandUseBadgeProps) => {
-  const { info, status } = useLandUseInfo(lat, lng);
+export const LandUseBadge = ({ lat, lng, locationConfidence, compact = false, className }: LandUseBadgeProps) => {
+  const hasPreciseCoordinates =
+    typeof lat === "number" &&
+    typeof lng === "number" &&
+    (locationConfidence === undefined || locationConfidence >= 0.82);
+  const { info, status } = useLandUseInfo(hasPreciseCoordinates ? lat : undefined, hasPreciseCoordinates ? lng : undefined);
   const hasCoordinates = typeof lat === "number" && typeof lng === "number";
   const landUseLabel = info
     ? info.displayName ?? info.zoningName ?? info.detailName ?? info.secondaryName ?? info.primaryName ?? "公開圖資未標示細項"
     : status === "loading"
       ? "正在查詢最新公開圖資..."
-      : hasCoordinates
+      : hasCoordinates && !hasPreciseCoordinates
+        ? "定位精度不足，暫不判讀土地用途"
+        : hasCoordinates
         ? "此座標暫無可用土地用途別"
         : "尚未取得精準座標";
   const classificationText = info
@@ -33,7 +40,13 @@ export const LandUseBadge = ({ lat, lng, compact = false, className }: LandUseBa
         {info ? (
           <small>{classificationText || "完成定位後依公開圖資判讀；正式用途仍以主管機關核定為準。"}</small>
         ) : (
-          <small>{hasCoordinates ? "請微調定位點或稍後再試。" : "完成地址或地圖定位後會自動查詢。"}</small>
+          <small>
+            {hasCoordinates && !hasPreciseCoordinates
+              ? "請用地圖拖曳定位點或選擇更明確地址後再查詢。"
+              : hasCoordinates
+                ? "請微調定位點或稍後再試。"
+                : "完成地址或地圖定位後會自動查詢。"}
+          </small>
         )}
       </div>
     </article>
