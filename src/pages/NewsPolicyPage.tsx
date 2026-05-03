@@ -8,6 +8,7 @@ import {
   getPolicyItems,
   type RegionalContentItem,
 } from "../services/newsPolicy";
+import { buildTargetLabel } from "../utils/locationPrecision";
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
 
@@ -86,13 +87,15 @@ const ReaderModal = ({ item, onClose }: { item: RegionalContentItem; onClose: ()
 );
 
 export const NewsPolicyPage = () => {
-  const { propertyInput } = useEstimate();
+  const { propertyInput, selectedLocation } = useEstimate();
   const [news, setNews] = useState<RegionalContentItem[]>(() =>
     fallbackRegionalNews(propertyInput.city, propertyInput.district),
   );
   const [newsStatus, setNewsStatus] = useState<"loading" | "ready" | "fallback">("loading");
   const [activeItem, setActiveItem] = useState<RegionalContentItem | undefined>();
   const regionLabel = buildRegionalScope(propertyInput.city, propertyInput.district);
+  const targetLabel = buildTargetLabel(propertyInput, selectedLocation, regionLabel);
+  const showScopeNote = targetLabel !== regionLabel;
   const policies = useMemo(
     () => sortByDateDesc(getPolicyItems(propertyInput.city, propertyInput.district)),
     [propertyInput.city, propertyInput.district],
@@ -137,8 +140,9 @@ export const NewsPolicyPage = () => {
         <div className="regional-subject-card">
           <Globe2 size={22} />
           <div>
-            <span>目前標的地區</span>
-            <strong>{regionLabel}</strong>
+            <span>目前標的位置</span>
+            <strong>{targetLabel}</strong>
+            {showScopeNote && <small className="scope-note">新聞政策搜尋範圍：{regionLabel}</small>}
           </div>
         </div>
       </section>

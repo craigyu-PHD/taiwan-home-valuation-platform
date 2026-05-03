@@ -10,7 +10,10 @@ export const TransactionList = ({ cases }: { cases: WeightedCase[] }) => (
       cases.map((item) => (
         <article key={item.id} className="transaction-card">
           <div className="transaction-topline">
-            <strong>{item.communityName ?? item.addressLabel}</strong>
+            <strong>
+              {item.communityName ?? item.addressLabel}
+              {item.tags.includes("同社區") && <small className="community-match-badge">同社區</small>}
+            </strong>
             <span>{formatUnitWan(item.unitPriceWan)}</span>
           </div>
           <p>{item.addressLabel}</p>

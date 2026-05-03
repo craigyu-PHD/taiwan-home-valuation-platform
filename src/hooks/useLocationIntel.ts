@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { lookupLocationIntel, type LocationIntel } from "../services/locationIntel";
+import { getCachedLocationIntel, lookupLocationIntel, type LocationIntel } from "../services/locationIntel";
 
 type IntelStatus = "idle" | "loading" | "ready" | "missing";
 
@@ -15,8 +15,9 @@ export const useLocationIntel = (lat?: number, lng?: number, radiusMeters = 1200
       return;
     }
 
-    setIntel(undefined);
-    setStatus("loading");
+    const cachedIntel = getCachedLocationIntel(lat, lng, radiusMeters);
+    setIntel(cachedIntel);
+    setStatus(cachedIntel ? "ready" : "loading");
     lookupLocationIntel(lat, lng, radiusMeters)
       .then((nextIntel) => {
         if (cancelled) return;

@@ -12,12 +12,15 @@ import { TransactionList } from "../components/TransactionList";
 import { useEstimate } from "../context/EstimateContext";
 import { estimateRental } from "../services/rental";
 import { formatUnitWan, formatWan } from "../utils/format";
+import { buildTargetLabel, isPreciseTargetLocation } from "../utils/locationPrecision";
 
 export const HomePage = () => {
-  const { propertyInput, valuation, rentalValuation, transactionMode } = useEstimate();
+  const { propertyInput, selectedLocation, valuation, rentalValuation, transactionMode } = useEstimate();
   const [hasInlineResult, setHasInlineResult] = useState(false);
   const rentResult = rentalValuation ?? (propertyInput.lat && propertyInput.lng ? estimateRental(propertyInput) : undefined);
   const hasTarget = Boolean(propertyInput.address && propertyInput.lat && propertyInput.lng);
+  const hasPreciseTarget = isPreciseTargetLocation(propertyInput, selectedLocation);
+  const targetLabel = buildTargetLabel(propertyInput, selectedLocation, "尚未選定標的");
   const shouldShowInlineResult = hasInlineResult || Boolean(valuation || rentalValuation);
 
   return (
@@ -53,7 +56,7 @@ export const HomePage = () => {
           <LandUseBadge
             lat={propertyInput.lat}
             lng={propertyInput.lng}
-            locationConfidence={propertyInput.locationConfidence}
+            locationConfidence={hasPreciseTarget ? propertyInput.locationConfidence : 0.58}
             compact
           />
           <div className="hero-actions">
@@ -69,7 +72,7 @@ export const HomePage = () => {
             <h2>{transactionMode === "sale" ? "目前標的與估價狀態" : "目前標的與租金狀態"}</h2>
             <div className="target-brief-card">
               <span>目前標的</span>
-              <strong>{hasTarget ? propertyInput.communityName || propertyInput.address : "尚未選定標的"}</strong>
+              <strong>{hasTarget ? targetLabel : "尚未選定標的"}</strong>
               <small>{hasTarget ? [propertyInput.city, propertyInput.district, propertyInput.road].filter(Boolean).join(" / ") : "請先輸入地址或使用地圖選點"}</small>
             </div>
           </div>

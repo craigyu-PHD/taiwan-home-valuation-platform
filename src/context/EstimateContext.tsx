@@ -7,8 +7,15 @@ import {
   useState,
 } from "react";
 import type { LocationCandidate, PropertyInput, RentalValuationResult, TransactionMode, ValuationResult } from "../types";
+import { demoTransactions } from "../data/demoTransactions";
 import { estimateRental } from "../services/rental";
 import { createDefaultInput, estimateProperty } from "../services/valuation";
+import { cleanAdministrativeAddress, isAdministrativeOnlyAddress } from "../utils/addressNormalize";
+import {
+  cleanCommunityDisplayName,
+  inferCommunityFromCandidate,
+  inferCommunityFromNearbyTransactions,
+} from "../utils/community";
 
 interface EstimateContextValue {
   propertyInput: PropertyInput;
@@ -25,11 +32,33 @@ interface EstimateContextValue {
 
 const EstimateContext = createContext<EstimateContextValue | undefined>(undefined);
 const MODE_STORAGE_KEY = "taiwan-valuation-transaction-mode";
-const ESTIMATE_STORAGE_KEY = "taiwan-valuation-current-estimate-v2";
+const ESTIMATE_STORAGE_KEY = "taiwan-valuation-current-estimate-v4";
 
 type PersistedEstimateState = {
   propertyInput: PropertyInput;
   selectedLocation?: LocationCandidate;
+};
+
+const sanitizeLocationCandidate = (candidate?: LocationCandidate) => {
+  if (!candidate) return undefined;
+  const approximateFallback =
+    candidate.source === "manual" && /^(admin-fuzzy|structured-)/.test(candidate.id);
+  return {
+    ...candidate,
+    label: cleanAdministrativeAddress(candidate.label, candidate.city, candidate.district) || candidate.label,
+    confidence: approximateFallback ? Math.min(candidate.confidence, 0.68) : candidate.confidence,
+  };
+};
+
+const sanitizePropertyInput = (input: PropertyInput): PropertyInput => {
+  const address = input.address ? cleanAdministrativeAddress(input.address, input.city, input.district) : input.address;
+  const approximateAddress = isAdministrativeOnlyAddress(address, input.city, input.district);
+  return {
+    ...input,
+    address,
+    communityName: cleanCommunityDisplayName(input.communityName, input.city, input.district),
+    locationConfidence: approximateAddress ? Math.min(input.locationConfidence, 0.68) : input.locationConfidence,
+  };
 };
 
 const readInitialMode = (): TransactionMode => {
@@ -49,23 +78,15 @@ const readInitialEstimate = (): PersistedEstimateState => {
     const parsed = JSON.parse(raw) as Partial<PersistedEstimateState>;
     if (!parsed.propertyInput || typeof parsed.propertyInput !== "object") return fallback;
     return {
-      propertyInput: {
+      propertyInput: sanitizePropertyInput({
         ...createDefaultInput(),
         ...parsed.propertyInput,
-      },
-      selectedLocation: parsed.selectedLocation,
+      }),
+      selectedLocation: sanitizeLocationCandidate(parsed.selectedLocation),
     };
   } catch {
     return fallback;
   }
-};
-
-const inferCommunityName = (candidate: LocationCandidate) => {
-  const label = candidate.label.normalize("NFKC");
-  if (/國[都度]花園/.test(label)) return "國都花園社區";
-  const parenthesized = label.match(/[（(]([^）)]+社區)[）)]/);
-  if (parenthesized?.[1]) return parenthesized[1];
-  return label.match(/([\u4e00-\u9fa5A-Za-z0-9]{2,}(?:社區|花園|大廈|名邸|新城|山莊|公寓|華廈|苑|園))/)?.[1];
 };
 
 export const EstimateProvider = ({ children }: PropsWithChildren) => {
@@ -106,26 +127,30 @@ export const EstimateProvider = ({ children }: PropsWithChildren) => {
       transactionMode: transactionModeState,
       setTransactionMode,
       setSelectedLocation: (candidate) => {
-        setSelectedLocationState(candidate);
+        const normalizedCandidate = sanitizeLocationCandidate(candidate) ?? candidate;
+        setSelectedLocationState(normalizedCandidate);
         setPropertyInput((current) => {
-          const next = {
+          const communityName =
+            inferCommunityFromCandidate(normalizedCandidate) ??
+            inferCommunityFromNearbyTransactions(normalizedCandidate, demoTransactions);
+          const next = sanitizePropertyInput({
             ...current,
-            communityName: inferCommunityName(candidate) ?? current.communityName,
-            address: candidate.label,
-            city: candidate.city,
-            district: candidate.district,
-            road: candidate.road,
-            lat: candidate.lat,
-            lng: candidate.lng,
-            locationConfidence: candidate.confidence,
-          };
+            communityName,
+            address: normalizedCandidate.label,
+            city: normalizedCandidate.city,
+            district: normalizedCandidate.district,
+            road: normalizedCandidate.road,
+            lat: normalizedCandidate.lat,
+            lng: normalizedCandidate.lng,
+            locationConfidence: normalizedCandidate.confidence,
+          });
           setValuation(estimateProperty(next));
           setRentalValuation(estimateRental(next));
           return next;
         });
       },
       updatePropertyInput: (updates) => {
-        setPropertyInput((current) => ({ ...current, ...updates }));
+        setPropertyInput((current) => sanitizePropertyInput({ ...current, ...updates }));
       },
       resetEstimate: () => {
         const next = createDefaultInput();
@@ -135,7 +160,7 @@ export const EstimateProvider = ({ children }: PropsWithChildren) => {
         setRentalValuation(undefined);
       },
       runValuation: (updates) => {
-        const next = { ...propertyInput, ...updates };
+        const next = sanitizePropertyInput({ ...propertyInput, ...updates });
         setPropertyInput(next);
         const result = estimateProperty(next);
         setRentalValuation(estimateRental(next));

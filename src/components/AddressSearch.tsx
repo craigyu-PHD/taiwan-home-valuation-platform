@@ -1,4 +1,4 @@
-import { Loader2, LocateFixed, MapPin, Search } from "lucide-react";
+import { Loader2, LocateFixed, MapPin, Search, X } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useEstimate } from "../context/EstimateContext";
@@ -45,7 +45,12 @@ export const AddressSearch = ({ compact, buttonLabel = "立即估價", onSelect 
       return;
     }
 
-    if (results.length === 1) {
+    const first = results[0];
+    const shouldAutoSelect =
+      (results.length === 1 && first?.source !== "manual" && first.confidence >= 0.78) ||
+      (results.length === 1 && first?.source === "manual" && first.confidence >= 0.55) ||
+      (first?.source === "local" && first.confidence >= 0.88);
+    if (shouldAutoSelect) {
       selectCandidate(results[0]);
       return;
     }
@@ -65,6 +70,20 @@ export const AddressSearch = ({ compact, buttonLabel = "立即估價", onSelect 
             placeholder="輸入地址、路段、社區或地標"
             aria-label="輸入地址、路段、社區或地標"
           />
+          {query && (
+            <button
+              type="button"
+              className="input-clear-button"
+              aria-label="清除地址搜尋"
+              onClick={() => {
+                setQuery("");
+                setCandidates([]);
+                setMessage("");
+              }}
+            >
+              <X size={16} />
+            </button>
+          )}
         </div>
         <button className="primary-button" type="submit" disabled={loading}>
           {loading ? <Loader2 className="spin" size={18} /> : <LocateFixed size={18} />}

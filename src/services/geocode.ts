@@ -2,10 +2,16 @@ import { taiwanAdmin, taiwanCities } from "../data/taiwanAdmin";
 import { taiwanPlaceCandidates } from "../data/taiwanPlaces";
 import { getBoundaryCenter, getTownBoundary } from "./boundaries";
 import type { LocationCandidate } from "../types";
-import { getAddressSearchVariants, normalizeAddressText } from "../utils/addressNormalize";
+import {
+  cleanAdministrativeAddress,
+  getAddressSearchVariants,
+  isAdministrativeOnlyAddress,
+  normalizeAddressText,
+  stripAdministrativePrefix,
+} from "../utils/addressNormalize";
 
-const CACHE_KEY = "taiwan-valuation-geocode-cache-v4";
-const REVERSE_CACHE_KEY = "taiwan-valuation-reverse-geocode-cache-v1";
+const CACHE_KEY = "taiwan-valuation-geocode-cache-v11";
+const REVERSE_CACHE_KEY = "taiwan-valuation-reverse-geocode-cache-v2";
 const LAST_REQUEST_KEY = "taiwan-valuation-geocode-last-request";
 const MIN_REQUEST_GAP_MS = 1100;
 
@@ -69,25 +75,31 @@ const findDistrict = (normalizedQuery: string, city?: string) => {
 };
 
 const extractTaiwanQueryParts = (query: string): ParsedTaiwanQuery => {
-  const cleaned = fullWidthSafeQuery(query)
+  const rawCleaned = fullWidthSafeQuery(query)
     .replace(/[,，、]+/g, " ")
     .replace(/\s+/g, " ")
     .replace(/\b\d{3,5}\b/g, "")
     .replace(/台灣|臺灣|taiwan/gi, "")
     .trim();
+  const cleaned = cleanAdministrativeAddress(rawCleaned).trim();
   const normalized = normalizeAddressText(cleaned);
   const city = findCity(normalized);
   const districtMatch = findDistrict(normalized, city);
   const road = cleaned.match(/([\u4e00-\u9fa5A-Za-z0-9]+(?:大道|路|街|巷|弄)(?:[一二三四五六七八九十0-9]+段)?)/)?.[1];
   const houseNumber = cleaned.match(/([0-9]+(?:[-之][0-9]+)?|[一二三四五六七八九十百]+)\s*號/)?.[1];
-  const community = cleaned.match(/([\u4e00-\u9fa5A-Za-z0-9A-Za-z]{2,}(?:社區|花園|大廈|名邸|新城|山莊|公寓|華廈|苑|園))/)?.[1];
+  const rawCommunity = cleaned.match(/([\u4e00-\u9fa5A-Za-z0-9A-Za-z]{2,}(?:社區|花園|大廈|名邸|新城|山莊|公寓|華廈|苑|園))/)?.[1];
+  const resolvedCity = city ?? districtMatch.city;
+  const community = rawCommunity
+    ? cleanAdministrativeAddress(stripAdministrativePrefix(rawCommunity, resolvedCity, districtMatch.district) || rawCommunity, resolvedCity, districtMatch.district)
+    : undefined;
+  const usableCommunity = community && !isAdministrativeOnlyAddress(community, resolvedCity, districtMatch.district) ? community : undefined;
   return {
     cleaned,
-    city: city ?? districtMatch.city,
+    city: resolvedCity,
     district: districtMatch.district,
     road,
     houseNumber,
-    community,
+    community: usableCommunity,
   };
 };
 
@@ -108,15 +120,29 @@ const getFuzzyQueries = (query: string, parsed = extractTaiwanQueryParts(query))
   return [...new Set(variants)];
 };
 
+const hasSpecificQuerySignal = (query: string, parsed = extractTaiwanQueryParts(query)) =>
+  Boolean(
+    parsed.community ||
+      parsed.road ||
+      parsed.houseNumber ||
+      /國[都度]花園/.test(query) ||
+      /台北101|臺北101|taipei101/i.test(query),
+  );
+
 const localCandidates = (query: string) => {
   const queryVariants = getAddressSearchVariants(query);
   if (!queryVariants.length) return [];
+  const parsed = extractTaiwanQueryParts(query);
+  const hasSpecificSignal = hasSpecificQuerySignal(query, parsed);
+  if (!hasSpecificSignal) return [];
   const isGuoduQuery = queryVariants.some(
     (variant) => /國[都度]花園/.test(variant),
   );
-  const directMatches = isGuoduQuery
-    ? taiwanPlaceCandidates.filter((candidate) => candidate.id === "local-taoyuan-guodu")
-    : [];
+  const isTaipei101Query = queryVariants.some((variant) => /台北101|臺北101|taipei101/i.test(variant));
+  const directMatches = taiwanPlaceCandidates.filter((candidate) =>
+    (isGuoduQuery && candidate.id === "local-taoyuan-guodu") ||
+    (isTaipei101Query && candidate.id === "local-tpe-101")
+  );
   return taiwanPlaceCandidates.filter((candidate) => {
     const haystack = normalizeAddressText(
       `${candidate.label}${candidate.city ?? ""}${candidate.district ?? ""}${candidate.road ?? ""}`,
@@ -126,7 +152,7 @@ const localCandidates = (query: string) => {
     const road = normalizeAddressText(candidate.road ?? "");
     return queryVariants.some((normalizedQuery) => {
       if (normalizedQuery.length < 4) return false;
-      const exactKnownPlace = haystack.includes(normalizedQuery) || normalizedQuery.includes(haystack);
+      const exactKnownPlace = hasSpecificSignal && (haystack.includes(normalizedQuery) || normalizedQuery.includes(haystack));
       const sameAdmin =
         city.length > 0 &&
         district.length > 0 &&
@@ -153,10 +179,11 @@ const makeAdminFallbackCandidate = async (query: string): Promise<LocationCandid
     parsed.road,
     parsed.houseNumber ? `${parsed.houseNumber}號` : undefined,
   ].filter(Boolean).join("");
-  const confidence = parsed.road && parsed.houseNumber ? 0.84 : parsed.road || parsed.community ? 0.8 : 0.72;
+  const confidence = parsed.road && parsed.houseNumber ? 0.68 : parsed.road || parsed.community ? 0.64 : 0.58;
+  const cleanedLabel = cleanAdministrativeAddress(label || `${parsed.city}${parsed.district}`, parsed.city, parsed.district);
   return {
-    id: `admin-fuzzy-${normalizeAddressText(label || query)}`,
-    label: label || `${parsed.city}${parsed.district}`,
+    id: `admin-fuzzy-${normalizeAddressText(cleanedLabel)}`,
+    label: cleanedLabel,
     city: parsed.city,
     district: parsed.district,
     road: parsed.road,
@@ -168,6 +195,7 @@ const makeAdminFallbackCandidate = async (query: string): Promise<LocationCandid
 };
 
 const hasStrongLocalMatch = (query: string, local: LocationCandidate[]) => {
+  if (!hasSpecificQuerySignal(query)) return false;
   const normalizedQuery = normalizeAddressText(query);
   return local.some((candidate) => {
     const normalizedLabel = normalizeAddressText(candidate.label);
@@ -176,6 +204,7 @@ const hasStrongLocalMatch = (query: string, local: LocationCandidate[]) => {
       normalizedLabel.includes(normalizedQuery) ||
       normalizedQuery.includes(normalizedLabel) ||
       (/國[都度]花園/.test(normalizedQuery) && /國都花園/.test(normalizedLabel)) ||
+      (/台北101|臺北101|taipei101/i.test(normalizedQuery) && /台北101/.test(normalizedLabel)) ||
       (normalizedRoad.length >= 4 && normalizedQuery.includes(normalizedRoad) && normalizedQuery.length <= normalizedRoad.length + 4)
     );
   });
@@ -243,15 +272,22 @@ const mergeCandidates = (items: LocationCandidate[]) =>
   }, []);
 
 export const searchAddress = async (query: string): Promise<LocationCandidate[]> => {
-  const trimmed = query.trim();
+  const trimmed = cleanAdministrativeAddress(query.trim());
   if (!trimmed) return [];
 
   const cache = loadCache();
   const cacheKey = normalizeAddressText(trimmed);
   if (cache[cacheKey]) return cache[cacheKey];
 
+  const parsed = extractTaiwanQueryParts(trimmed);
   const local = localCandidates(trimmed);
   const adminFallback = await makeAdminFallbackCandidate(trimmed);
+  if (adminFallback && !hasSpecificQuerySignal(trimmed, parsed)) {
+    const results = [adminFallback];
+    cache[cacheKey] = results;
+    saveCache(cache);
+    return results;
+  }
   if (trimmed.length < 5 && !adminFallback && !local.length) return [];
   if (local.length > 0 && hasStrongLocalMatch(trimmed, local)) {
     const results = mergeCandidates([...local, ...(adminFallback ? [adminFallback] : [])]).slice(0, 6);
@@ -261,7 +297,8 @@ export const searchAddress = async (query: string): Promise<LocationCandidate[]>
   }
 
   try {
-    const fuzzyQueries = getFuzzyQueries(trimmed).slice(0, 4);
+    const maxRemoteQueries = adminFallback && adminFallback.confidence >= 0.84 ? 2 : 3;
+    const fuzzyQueries = getFuzzyQueries(trimmed).slice(0, maxRemoteQueries);
     const payload: Awaited<ReturnType<typeof fetchNominatimSearch>> = [];
     for (const item of fuzzyQueries) {
       try {
@@ -272,17 +309,23 @@ export const searchAddress = async (query: string): Promise<LocationCandidate[]>
       if (payload.length >= 5) break;
     }
 
-    const remote: LocationCandidate[] = payload.map((item) => ({
-      id: `nominatim-${item.place_id}`,
-      label: item.display_name,
-      city: item.address?.city ?? item.address?.county,
-      district: item.address?.town ?? item.address?.city_district ?? item.address?.suburb,
-      road: [item.address?.road, item.address?.house_number ? `${item.address.house_number}號` : undefined].filter(Boolean).join("") || item.address?.neighbourhood,
-      lat: Number(item.lat),
-      lng: Number(item.lon),
-      confidence: Math.min(0.95, Math.max(0.5, item.importance ?? 0.6)),
-      source: "nominatim",
-    }));
+    const remote: LocationCandidate[] = payload.map((item) => {
+      const candidate: LocationCandidate = {
+        id: `nominatim-${item.place_id}`,
+        label: item.display_name,
+        city: item.address?.city ?? item.address?.county,
+        district: item.address?.town ?? item.address?.city_district ?? item.address?.suburb,
+        road: [item.address?.road, item.address?.house_number ? `${item.address.house_number}號` : undefined].filter(Boolean).join("") || item.address?.neighbourhood,
+        lat: Number(item.lat),
+        lng: Number(item.lon),
+        confidence: Math.min(0.95, Math.max(0.5, item.importance ?? 0.6)),
+        source: "nominatim",
+      };
+      return {
+        ...candidate,
+        confidence: Math.min(0.94, Math.max(candidate.confidence, remoteCandidateScore(trimmed, candidate))),
+      };
+    });
 
     const hasStrongLocal = local.length > 0 && hasStrongLocalMatch(trimmed, local);
     const sortedRemote = remote.sort((a, b) => remoteCandidateScore(trimmed, b) - remoteCandidateScore(trimmed, a));

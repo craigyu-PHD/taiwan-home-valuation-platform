@@ -11,6 +11,7 @@ import type {
   WeightedCase,
 } from "../types";
 import { clamp, haversineMeters } from "../utils/format";
+import { communityEquals } from "../utils/community";
 
 const DEMO_REFERENCE_DATE = new Date("2026-04-30T00:00:00+08:00");
 const STANDARD_PROPERTY_TYPES: PropertyType[] = ["住宅大樓", "華廈", "公寓", "套房"];
@@ -27,7 +28,7 @@ export const createDefaultInput = (): PropertyInput => ({
   lng: undefined,
   locationConfidence: 0,
   propertyType: "住宅大樓",
-  areaPing: 30,
+  areaPing: undefined,
   floor: undefined,
   totalFloors: undefined,
   ageYears: undefined,
@@ -92,6 +93,42 @@ const median = (values: number[]) => {
   const middle = Math.floor(sorted.length / 2);
   if (sorted.length % 2) return sorted[middle];
   return (sorted[middle - 1] + sorted[middle]) / 2;
+};
+
+const sameRoad = (input: PropertyInput, item: TransactionCase) => Boolean(input.road && input.road === item.road);
+
+const sameDistrict = (input: PropertyInput, item: TransactionCase) =>
+  Boolean(input.city && input.district && input.city === item.city && input.district === item.district);
+
+const RECENT_TRANSACTION_MONTHS = 12;
+const MAX_DISPLAY_CASES = 80;
+
+const orderCasesForDisplay = (input: PropertyInput, cases: WeightedCase[]) => {
+  const sortByUnitPrice = (a: WeightedCase, b: WeightedCase) => b.unitPriceWan - a.unitPriceWan || a.monthsAgo - b.monthsAgo;
+  const sameCommunity = cases
+    .filter((item) => communityEquals(input.communityName, item.communityName))
+    .sort(sortByUnitPrice);
+  const recentComparable = cases
+    .filter((item) => !communityEquals(input.communityName, item.communityName) && item.monthsAgo <= RECENT_TRANSACTION_MONTHS)
+    .sort((a, b) => {
+      const roadDiff = Number(sameRoad(input, b)) - Number(sameRoad(input, a));
+      if (roadDiff) return roadDiff;
+      const districtDiff = Number(sameDistrict(input, b)) - Number(sameDistrict(input, a));
+      if (districtDiff) return districtDiff;
+      const distanceDiff = Number((b.distanceMeters ?? Infinity) <= 1000) - Number((a.distanceMeters ?? Infinity) <= 1000);
+      if (distanceDiff) return distanceDiff;
+      return sortByUnitPrice(a, b);
+    });
+  const olderComparable = cases
+    .filter((item) => !communityEquals(input.communityName, item.communityName))
+    .sort((a, b) => {
+      const roadDiff = Number(sameRoad(input, b)) - Number(sameRoad(input, a));
+      if (roadDiff) return roadDiff;
+      const districtDiff = Number(sameDistrict(input, b)) - Number(sameDistrict(input, a));
+      if (districtDiff) return districtDiff;
+      return sortByUnitPrice(a, b) || b.weight - a.weight || a.distanceMeters - b.distanceMeters;
+    });
+  return uniqueWeightedCases([...sameCommunity, ...recentComparable, ...olderComparable]).slice(0, MAX_DISPLAY_CASES);
 };
 
 const cityBaselines: Record<string, number> = {
@@ -174,8 +211,8 @@ const scoreCase = (input: PropertyInput, item: TransactionCase): WeightedCase | 
   const tags: string[] = [];
   let score = 0;
 
-  if (input.communityName && input.communityName === item.communityName) {
-    score += 34;
+  if (communityEquals(input.communityName, item.communityName)) {
+    score += 42;
     tags.push("同社區");
   } else if (input.road && input.road === item.road) {
     score += 26;
@@ -294,7 +331,7 @@ const confidenceLevel = (score: number, notSuitable: boolean): ConfidenceLevel =
 };
 
 const calcConfidence = (input: PropertyInput, cases: WeightedCase[], unitSpread: number) => {
-  const sameCommunity = cases.filter((item) => input.communityName && item.communityName === input.communityName).length;
+  const sameCommunity = cases.filter((item) => communityEquals(input.communityName, item.communityName)).length;
   const sameRoad = cases.filter((item) => input.road && item.road === input.road).length;
   const recent = cases.filter((item) => item.monthsAgo <= 12).length;
   const close = cases.filter((item) => item.distanceMeters <= 1000).length;
@@ -321,33 +358,34 @@ const calcConfidence = (input: PropertyInput, cases: WeightedCase[], unitSpread:
   return Math.round(clamp(score, 0, 100));
 };
 
-const makeNotSuitable = (input: PropertyInput, cases: WeightedCase[], reasons: string[]): ValuationResult => ({
-  status: "not-suitable",
-  confidenceScore: 18,
-  confidenceLevel: "不適合自動估價",
-  casesUsed: cases.slice(0, 8),
-  comparableCount: cases.length,
-  recentComparableCount: cases.filter((item) => item.monthsAgo <= 12).length,
-  communityComparableCount: cases.filter(
-    (item) => input.communityName && item.communityName === input.communityName,
-  ).length,
-  nearestDistanceMeters: cases.length
-    ? Math.min(...cases.map((item) => item.distanceMeters ?? Number.MAX_SAFE_INTEGER))
-    : undefined,
-  latestTransactionDate: cases
-    .map((item) => item.transactionDate)
-    .sort()
-    .at(-1),
-  reasons,
-  warnings: [
-    "此物件條件不適合由原型模型直接給出具體價格。",
-    "建議改查區域行情，或委託估價師、銀行鑑價、專業仲介進行人工確認。",
-  ],
-  factors: ["低信心敢拒估：特殊產權、特殊交易或非標準住宅不應硬給單一價格。"],
-  methodologySummary: "系統偵測到特殊風險或資料不足，因此停止自動估價並保留可參考案例。",
-  generatedAt: new Date().toISOString(),
-  valuationMode: input.valuationMode,
-});
+const makeNotSuitable = (input: PropertyInput, cases: WeightedCase[], reasons: string[]): ValuationResult => {
+  const displayCases = orderCasesForDisplay(input, cases);
+  return {
+    status: "not-suitable",
+    confidenceScore: 18,
+    confidenceLevel: "不適合自動估價",
+    casesUsed: displayCases,
+    comparableCount: displayCases.length,
+    recentComparableCount: displayCases.filter((item) => item.monthsAgo <= RECENT_TRANSACTION_MONTHS).length,
+    communityComparableCount: displayCases.filter((item) => communityEquals(input.communityName, item.communityName)).length,
+    nearestDistanceMeters: displayCases.length
+      ? Math.min(...displayCases.map((item) => item.distanceMeters ?? Number.MAX_SAFE_INTEGER))
+      : undefined,
+    latestTransactionDate: displayCases
+      .map((item) => item.transactionDate)
+      .sort()
+      .at(-1),
+    reasons,
+    warnings: [
+      "此物件條件不適合由原型模型直接給出具體價格。",
+      "建議改查區域行情，或委託估價師、銀行鑑價、專業仲介進行人工確認。",
+    ],
+    factors: ["低信心敢拒估：特殊產權、特殊交易或非標準住宅不應硬給單一價格。"],
+    methodologySummary: "系統偵測到特殊風險或資料不足，因此停止自動估價並保留可參考案例。",
+    generatedAt: new Date().toISOString(),
+    valuationMode: input.valuationMode,
+  };
+};
 
 const levelForEstimatedResult = (score: number): ConfidenceLevel => {
   if (score >= 75) return "高信心";
@@ -429,6 +467,11 @@ const fallbackComparableCases = (
       return haversineMeters(input.lat, input.lng, item.lat, item.lng) <= 15000;
     })
     .sort((a, b) => {
+      const communityDiff = Number(communityEquals(input.communityName, b.communityName)) - Number(communityEquals(input.communityName, a.communityName));
+      if (communityDiff) return communityDiff;
+      if (communityEquals(input.communityName, a.communityName) && communityEquals(input.communityName, b.communityName)) {
+        return b.unitPriceWan - a.unitPriceWan;
+      }
       if (!input.lat || !input.lng) return 0;
       return haversineMeters(input.lat, input.lng, a.lat, a.lng) - haversineMeters(input.lat, input.lng, b.lat, b.lng);
     });
@@ -523,29 +566,43 @@ export const estimateProperty = (
   input: PropertyInput,
   transactions: TransactionCase[] = demoTransactions,
 ): ValuationResult => {
-  let scoredCases = transactions
+  const allScoredCases = transactions
     .map((item) => scoreCase(input, item))
     .filter((item): item is WeightedCase => Boolean(item))
-    .sort((a, b) => b.weight - a.weight)
-    .slice(0, 18);
+    .sort((a, b) => b.weight - a.weight);
+
+  const sameCommunityCases = allScoredCases.filter((item) => communityEquals(input.communityName, item.communityName));
+  let scoredCases = uniqueWeightedCases([
+    ...sameCommunityCases.sort((a, b) => b.unitPriceWan - a.unitPriceWan || a.monthsAgo - b.monthsAgo),
+    ...allScoredCases.filter((item) => !communityEquals(input.communityName, item.communityName)),
+  ]).slice(0, 24);
 
   const originalScoredCount = scoredCases.length;
   const usedFallback = scoredCases.length < 8;
+  let fallbackCases: WeightedCase[] = [];
   if (usedFallback) {
-    scoredCases = uniqueWeightedCases([...scoredCases, ...fallbackComparableCases(input, transactions)])
+    fallbackCases = fallbackComparableCases(input, transactions);
+    scoredCases = uniqueWeightedCases([...scoredCases, ...fallbackCases])
       .sort((a, b) => b.weight - a.weight)
-      .slice(0, 18);
+      .slice(0, 24);
   }
+  const recentDisplayPool = allScoredCases.filter((item) => item.monthsAgo <= RECENT_TRANSACTION_MONTHS);
+  const displayCases = orderCasesForDisplay(input, [
+    ...sameCommunityCases,
+    ...recentDisplayPool,
+    ...scoredCases,
+    ...fallbackCases,
+  ]);
 
   const hardStop = input.specialFactors.some((factor) => HARD_STOP_FACTORS.includes(factor));
   const unsupported = !STANDARD_PROPERTY_TYPES.includes(input.propertyType);
-  const invalidArea = !input.areaPing || input.areaPing < 5 || input.areaPing > 160;
+  const invalidArea = input.areaPing !== undefined && (input.areaPing < 5 || input.areaPing > 160);
   const missingLocation = !input.lat || !input.lng;
 
   const stopReasons: string[] = [];
   if (hardStop) stopReasons.push("包含凶宅、持分、法拍、地上權或特殊產權等高風險條件。");
   if (unsupported) stopReasons.push(`${input.propertyType} 第一版不列為標準住宅自動估價範圍。`);
-  if (invalidArea) stopReasons.push("權狀坪數未提供或落在不合理區間。");
+  if (invalidArea) stopReasons.push("權狀坪數落在不合理區間。");
   if (missingLocation) stopReasons.push("地址尚未定位，無法取得周邊成交距離。");
   if (usedFallback) stopReasons.push("周邊 36 個月內可比成交案例少於 8 筆，已補入地址層級參考樣本。");
 
@@ -583,8 +640,9 @@ export const estimateProperty = (
 
   const warnings: string[] = [];
   if (usedFallback) warnings.push("此結果補入地址層級參考樣本；正式版匯入完整實價登錄後會顯示真實成交地址，信心已降低。");
+  if (!input.areaPing) warnings.push("未提供權狀坪數，總價暫以可比案例中位坪數估算；補入坪數後會重新計算。");
   if (lowConfidence) warnings.push("可比成交或條件相似度不足，價格區間已加寬，請勿作為交易或授信決策。");
-  if (scoredCases.filter((item) => item.monthsAgo <= 12).length < 3) {
+  if (scoredCases.filter((item) => item.monthsAgo <= RECENT_TRANSACTION_MONTHS).length < 3) {
     warnings.push("近 12 個月類似成交不足，已納入較舊案例並降低信心。");
   }
   if (rawSpread > 0.34) warnings.push("周邊成交單價離散度偏高，可能代表產品差異或市場波動。");
@@ -592,9 +650,9 @@ export const estimateProperty = (
 
   const reasons = [
     usedFallback
-      ? `周邊樣本偏少，改採 ${scoredCases.length} 筆周邊成交與地址層級參考案例輔助估算。`
-      : `採用 ${scoredCases.length} 筆 36 個月內、10 公里內的可比成交案例。`,
-    `其中 ${scoredCases.filter((item) => item.monthsAgo <= 12).length} 筆為近 12 個月成交，${scoredCases.filter((item) => item.distanceMeters <= 1000).length} 筆距離 1 公里內。`,
+      ? `周邊樣本偏少，改採 ${displayCases.length} 筆周邊成交與地址層級參考案例輔助估算。`
+      : `採用 ${displayCases.length} 筆 36 個月內、10 公里內的可比成交案例。`,
+    `其中 ${displayCases.filter((item) => item.monthsAgo <= RECENT_TRANSACTION_MONTHS).length} 筆為近 12 個月成交，${displayCases.filter((item) => item.distanceMeters <= 1000).length} 筆距離 1 公里內。`,
     input.road
       ? `優先比對同社區、${input.road} 同路段與同行政區案例。`
       : "地址路段尚未完整解析，因此以距離、行政區與產品條件比對。",
@@ -610,16 +668,14 @@ export const estimateProperty = (
     unitHighWan: unitHigh,
     confidenceScore: confidence,
     confidenceLevel: level,
-    casesUsed: scoredCases,
-    comparableCount: scoredCases.length,
-    recentComparableCount: scoredCases.filter((item) => item.monthsAgo <= 12).length,
-    communityComparableCount: scoredCases.filter(
-      (item) => input.communityName && item.communityName === input.communityName,
-    ).length,
-    nearestDistanceMeters: scoredCases.length
-      ? Math.min(...scoredCases.map((item) => item.distanceMeters ?? Number.MAX_SAFE_INTEGER))
+    casesUsed: displayCases,
+    comparableCount: displayCases.length,
+    recentComparableCount: displayCases.filter((item) => item.monthsAgo <= RECENT_TRANSACTION_MONTHS).length,
+    communityComparableCount: displayCases.filter((item) => communityEquals(input.communityName, item.communityName)).length,
+    nearestDistanceMeters: displayCases.length
+      ? Math.min(...displayCases.map((item) => item.distanceMeters ?? Number.MAX_SAFE_INTEGER))
       : undefined,
-    latestTransactionDate: scoredCases
+    latestTransactionDate: displayCases
       .map((item) => item.transactionDate)
       .sort()
       .at(-1),

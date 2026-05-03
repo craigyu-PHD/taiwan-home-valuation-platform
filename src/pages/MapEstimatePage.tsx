@@ -19,14 +19,17 @@ import { reverseGeocodePoint } from "../services/geocode";
 import { estimateRental, getNearbyRentalReferences } from "../services/rental";
 import { estimateProperty, getNearbyTransactions } from "../services/valuation";
 import type { LocationCandidate } from "../types";
+import { inferCommunityFromCandidate, inferCommunityFromNearbyTransactions } from "../utils/community";
+import { isPreciseTargetLocation } from "../utils/locationPrecision";
 
 export const MapEstimatePage = () => {
-  const { propertyInput, setSelectedLocation, runValuation, valuation, rentalValuation, transactionMode } = useEstimate();
+  const { propertyInput, selectedLocation, setSelectedLocation, runValuation, valuation, rentalValuation, transactionMode } = useEstimate();
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [boundary, setBoundary] = useState<BoundaryFeature | undefined>();
   const [locatorStatus, setLocatorStatus] = useState("搜尋地址，或直接拖曳地圖上的小水豚到目標位置。");
 
   const hasTarget = Boolean(propertyInput.address && propertyInput.lat && propertyInput.lng);
+  const hasPreciseTarget = isPreciseTargetLocation(propertyInput, selectedLocation);
   const center: [number, number] = [propertyInput.lat ?? 23.8, propertyInput.lng ?? 121.0];
   useEffect(() => {
     getTownBoundary(propertyInput.city, propertyInput.district).then(setBoundary).catch(() => setBoundary(undefined));
@@ -41,12 +44,16 @@ export const MapEstimatePage = () => {
   const rentPreview = rentalValuation ?? (hasTarget ? estimateRental(propertyInput, demoTransactions) : undefined);
 
   const applyValuationForCandidate = (candidate: LocationCandidate) => {
+    const communityName =
+      inferCommunityFromCandidate(candidate) ??
+      inferCommunityFromNearbyTransactions(candidate, demoTransactions);
     setSelectedLocation(candidate);
     runValuation({
       address: candidate.label,
       city: candidate.city,
       district: candidate.district,
       road: candidate.road,
+      communityName,
       lat: candidate.lat,
       lng: candidate.lng,
       locationConfidence: candidate.confidence,
@@ -152,14 +159,14 @@ export const MapEstimatePage = () => {
           <LandUseBadge
             lat={propertyInput.lat}
             lng={propertyInput.lng}
-            locationConfidence={propertyInput.locationConfidence}
+            locationConfidence={hasPreciseTarget ? propertyInput.locationConfidence : 0.58}
             compact
           />
           {transactionMode === "sale" ? (
             preview ? (
               <>
                 <ResultSummary result={preview} compact />
-                <TransactionList cases={preview.casesUsed.slice(0, 5)} />
+                <TransactionList cases={preview.casesUsed} />
               </>
             ) : (
               <section className="empty-state">請先搜尋地址、使用目前位置，或把小水豚拖到地圖上的目標位置。</section>

@@ -14,23 +14,28 @@ export interface LocationIntel {
   sourceUrl: string;
 }
 
-const CACHE_KEY = "taiwan-valuation-location-intel-v11";
+const CACHE_KEY = "taiwan-valuation-location-intel-v15";
 const GUODU_CENTER = { lat: 25.02247, lng: 121.29303 };
 
 type CacheMap = Record<string, LocationIntel>;
+
+let memoryCache: CacheMap | undefined;
 
 const getCacheKey = (lat: number, lng: number, radiusMeters: number) =>
   `${lat.toFixed(4)},${lng.toFixed(4)},${radiusMeters}`;
 
 const loadCache = (): CacheMap => {
+  if (memoryCache) return memoryCache;
   try {
-    return JSON.parse(localStorage.getItem(CACHE_KEY) ?? "{}") as CacheMap;
+    memoryCache = JSON.parse(localStorage.getItem(CACHE_KEY) ?? "{}") as CacheMap;
   } catch {
-    return {};
+    memoryCache = {};
   }
+  return memoryCache;
 };
 
 const saveCache = (cache: CacheMap) => {
+  memoryCache = cache;
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
   } catch {
@@ -91,7 +96,7 @@ const localGuoduFeatures: NearbyFeature[] = [
 ];
 
 const isNearGuodu = (lat: number, lng: number) =>
-  distanceMeters(lat, lng, GUODU_CENTER.lat, GUODU_CENTER.lng) <= 900;
+  distanceMeters(lat, lng, GUODU_CENTER.lat, GUODU_CENTER.lng) <= 120;
 
 const mergeLocalFallback = (
   lat: number,
@@ -99,7 +104,7 @@ const mergeLocalFallback = (
   radiusMeters: number,
   features: NearbyFeature[],
 ) => {
-  if (!isNearGuodu(lat, lng)) return features;
+  if (!isNearGuodu(lat, lng) || features.length > 0) return features;
   const merged = [...features];
   const hasCategory = (category: NearbyFeature["category"]) => merged.some((item) => item.category === category);
   localGuoduFeatures
@@ -137,6 +142,11 @@ const fetchWithTimeout = async (url: string, timeoutMs = 12000) => {
   } finally {
     window.clearTimeout(timer);
   }
+};
+
+export const getCachedLocationIntel = (lat?: number, lng?: number, radiusMeters = 1200) => {
+  if (typeof lat !== "number" || typeof lng !== "number") return undefined;
+  return loadCache()[getCacheKey(lat, lng, radiusMeters)];
 };
 
 export const getMajorDevelopmentSignal = (city?: string, district?: string, road?: string) => {
@@ -225,7 +235,7 @@ export const lookupLocationIntel = async (lat?: number, lng?: number, radiusMete
       medicalCount: uniqueFeatures.filter((item) => item.category === "medical").length,
       features: uniqueFeatures
         .sort((a, b) => (a.distanceMeters ?? Number.MAX_SAFE_INTEGER) - (b.distanceMeters ?? Number.MAX_SAFE_INTEGER)),
-      sourceUrl: isNearGuodu(lat, lng) ? `${sourceUrl} + 本地公開生活圈備援清單` : sourceUrl,
+      sourceUrl: features.length === 0 && isNearGuodu(lat, lng) ? `${sourceUrl} + 本地公開生活圈備援清單` : sourceUrl,
     };
     if (uniqueFeatures.length) {
       cache[cacheKey] = intel;

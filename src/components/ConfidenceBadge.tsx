@@ -18,6 +18,8 @@ export const ConfidenceBadge = ({
   <div
     className={`confidence-badge ${levelClass[level]}`}
     style={{ "--score": `${Math.max(0, Math.min(100, score)) * 3.6}deg` } as CSSProperties & Record<"--score", string>}
+    tabIndex={0}
+    aria-label={`信心分數 ${score} / 100，${level}`}
   >
     <div className="confidence-ring">
       <strong>{score}</strong>

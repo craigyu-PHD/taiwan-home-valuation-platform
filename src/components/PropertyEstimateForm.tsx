@@ -8,16 +8,19 @@ import {
   Ruler,
   Search,
   SlidersHorizontal,
+  X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useEstimate } from "../context/EstimateContext";
+import { demoTransactions } from "../data/demoTransactions";
 import { taiwanAdmin, taiwanCities } from "../data/taiwanAdmin";
 import { getBoundaryCenter, getTownBoundary } from "../services/boundaries";
 import { searchAddress } from "../services/geocode";
 import { propertyTypes, specialFactors } from "../services/valuation";
 import type { LocationCandidate, ParkingType, PropertyInput, SpecialFactor, ValuationResult, ValuationSourceMode } from "../types";
 import { normalizeAddressText } from "../utils/addressNormalize";
+import { inferCommunityFromCandidate, inferCommunityFromNearbyTransactions, inferCommunityFromText } from "../utils/community";
 
 interface PropertyEstimateFormProps {
   compact?: boolean;
@@ -28,6 +31,79 @@ interface PropertyEstimateFormProps {
 
 const updateNumber = (value: string) => (value === "" ? undefined : Number(value));
 const FALLBACK_CITY = "臺北市";
+const ClearableInput = ({
+  value,
+  onChange,
+  onClear,
+  placeholder,
+  ariaLabel,
+  type = "text",
+  inputMode,
+  min,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  onClear?: () => void;
+  placeholder?: string;
+  ariaLabel: string;
+  type?: string;
+  inputMode?: "text" | "decimal" | "numeric";
+  min?: string;
+}) => (
+  <div className="clearable-field">
+    <input
+      type={type}
+      inputMode={inputMode}
+      min={min}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      placeholder={placeholder}
+      aria-label={ariaLabel}
+    />
+    {value && (
+      <button
+        type="button"
+        className="field-clear-button"
+        onClick={() => (onClear ? onClear() : onChange(""))}
+        aria-label={`清除${ariaLabel}`}
+      >
+        <X size={14} />
+      </button>
+    )}
+  </div>
+);
+
+const ClearableSelect = ({
+  value,
+  onChange,
+  onClear,
+  options,
+  ariaLabel,
+  placeholder = "請選擇",
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  onClear: () => void;
+  options: readonly string[];
+  ariaLabel: string;
+  placeholder?: string;
+}) => (
+  <div className="clearable-field clearable-select-field">
+    <select value={value} onChange={(event) => onChange(event.target.value)} aria-label={ariaLabel}>
+      <option value="">{placeholder}</option>
+      {options.map((item) => (
+        <option key={item} value={item}>
+          {item}
+        </option>
+      ))}
+    </select>
+    {value && (
+      <button type="button" className="field-clear-button" onClick={onClear} aria-label={`清除${ariaLabel}`}>
+        <X size={14} />
+      </button>
+    )}
+  </div>
+);
 const splitRoadAndSection = (value?: string) => {
   const normalized = value?.normalize("NFKC").trim() ?? "";
   const match = normalized.match(/^(.*?)([一二三四五六七八九十0-9]+)段$/);
@@ -58,7 +134,7 @@ export const PropertyEstimateForm = ({
   const [number, setNumber] = useState(extractHouseNumber(propertyInput.address));
   const [floorText, setFloorText] = useState(String(propertyInput.floor ?? 10));
   const [mode, setMode] = useState<ValuationSourceMode>(propertyInput.valuationMode ?? "智慧估價");
-  const [searchMode, setSearchMode] = useState<"地址搜尋" | "區域搜尋">("地址搜尋");
+  const [searchMode, setSearchMode] = useState<"地址搜尋" | "社區搜尋">("地址搜尋");
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [keyword, setKeyword] = useState("");
 
@@ -112,27 +188,67 @@ export const PropertyEstimateForm = ({
   ]);
 
   const buildAddress = () => {
-    if (searchMode === "區域搜尋") {
+    if (searchMode === "社區搜尋") {
       return [city, district, keyword].filter(Boolean).join("");
     }
+    const roadPart = road ? `${road}${section ? `${section}段` : ""}` : "";
     const parts = [
       city,
       district,
-      keyword,
-      road ? `${road}${section ? `${section}段` : ""}` : "",
-      lane ? `${lane}巷` : "",
-      alley ? `${alley}弄` : "",
-      number ? `${number}號` : "",
+      roadPart,
+      road && lane ? `${lane}巷` : "",
+      road && alley ? `${alley}弄` : "",
+      road && number ? `${number}號` : "",
     ];
     return parts.filter(Boolean).join("");
   };
 
+  const clearRoadParts = () => {
+    setRoad("");
+    setSection("");
+    setLane("");
+    setAlley("");
+    setNumber("");
+  };
+  const clearCity = () => {
+    setCity("");
+    setDistrict("");
+  };
+
+  const addressPreview = buildAddress();
+  const clearableAddressParts = [
+    { label: "縣市", value: city, clear: clearCity },
+    { label: "區域", value: district, clear: () => setDistrict("") },
+    { label: "社區", value: searchMode === "社區搜尋" ? keyword : "", clear: () => setKeyword("") },
+    { label: "路名", value: road, clear: clearRoadParts },
+    { label: "段", value: road ? section : "", clear: () => setSection("") },
+    { label: "巷", value: road ? lane : "", clear: () => setLane("") },
+    { label: "弄", value: road ? alley : "", clear: () => setAlley("") },
+    { label: "號", value: road ? number : "", clear: () => setNumber("") },
+  ].filter((item) => item.value);
+
   const syncAddress = async () => {
     const address = buildAddress();
-    const geocoded = searchMode === "地址搜尋" ? await searchAddress(address) : [];
+    const geocoded = await searchAddress(address);
     const bestMatch = geocoded[0];
     const boundary = await getTownBoundary(city, district);
     const center = getBoundaryCenter(boundary?.geometry);
+    const communityName =
+      (searchMode === "社區搜尋" ? inferCommunityFromText(keyword) : undefined) ??
+      (bestMatch ? inferCommunityFromCandidate(bestMatch) : undefined) ??
+      inferCommunityFromText(address);
+    const bestMatchIsPrecise = bestMatch && bestMatch.source !== "manual";
+    const fallbackConfidence = center
+      ? searchMode === "地址搜尋"
+        ? road && number
+          ? 0.58
+          : road
+            ? 0.56
+            : 0.52
+        : keyword
+          ? 0.6
+          : 0.52
+      : 0.58;
     const candidate: LocationCandidate = {
       id: `structured-${normalizeAddressText(address)}`,
       label: address,
@@ -141,16 +257,17 @@ export const PropertyEstimateForm = ({
       road: bestMatch?.road ?? (searchMode === "地址搜尋" && road ? `${road}${section ? `${section}段` : ""}` : undefined),
       lat: bestMatch?.lat ?? center?.[0] ?? propertyInput.lat ?? 25.033964,
       lng: bestMatch?.lng ?? center?.[1] ?? propertyInput.lng ?? 121.564468,
-      confidence: bestMatch?.confidence ?? (center ? (searchMode === "地址搜尋" ? 0.78 : 0.72) : 0.58),
+      confidence: bestMatchIsPrecise ? Math.max(bestMatch.confidence, 0.74) : fallbackConfidence,
       source: bestMatch?.source ?? "manual",
     };
+    const resolvedCommunityName = communityName ?? inferCommunityFromNearbyTransactions(candidate, demoTransactions);
     setSelectedLocation(candidate);
     updatePropertyInput({
       floor: updateNumber(floorText),
       city,
       district,
       road: candidate.road,
-      communityName: keyword || undefined,
+      communityName: resolvedCommunityName,
       address,
       lat: candidate.lat,
       lng: candidate.lng,
@@ -162,11 +279,16 @@ export const PropertyEstimateForm = ({
 
   const submit = async () => {
     const candidate = await syncAddress();
+    const communityName =
+      (searchMode === "社區搜尋" ? inferCommunityFromText(keyword) : undefined) ??
+      inferCommunityFromCandidate(candidate) ??
+      inferCommunityFromNearbyTransactions(candidate, demoTransactions);
     const result = runValuation({
       address: candidate.label,
       city: candidate.city,
       district: candidate.district,
       road: candidate.road,
+      communityName,
       lat: candidate.lat,
       lng: candidate.lng,
       locationConfidence: candidate.confidence,
@@ -234,97 +356,74 @@ export const PropertyEstimateForm = ({
         </button>
         <button
           type="button"
-          className={searchMode === "區域搜尋" ? "active" : ""}
-          onClick={() => setSearchMode("區域搜尋")}
+          className={searchMode === "社區搜尋" ? "active" : ""}
+          onClick={() => setSearchMode("社區搜尋")}
         >
           <MapPin size={17} />
-          區域搜尋
+          社區搜尋
         </button>
       </div>
 
       <div className="structured-section-title">
         <MapPin size={18} />
-        <strong>{searchMode === "地址搜尋" ? "地址搜尋" : "行政區行情搜尋"}</strong>
+        <strong>{searchMode === "地址搜尋" ? "地址搜尋" : "社區搜尋"}</strong>
       </div>
       {searchMode === "地址搜尋" ? (
         <div className="structured-grid address-parts">
           <label>
             縣市 *
-            <select value={city} onChange={(event) => setCity(event.target.value)}>
-              {taiwanCities.map((item) => (
-                <option key={item}>{item}</option>
-              ))}
-            </select>
+            <ClearableSelect value={city} onChange={setCity} onClear={clearCity} options={taiwanCities} ariaLabel="縣市" />
           </label>
           <label>
             區域 *
-            <select value={district} onChange={(event) => setDistrict(event.target.value)}>
-              {districts.map((item) => (
-                <option key={item}>{item}</option>
-              ))}
-            </select>
-          </label>
-          <label className="wide-field">
-            社區 / 地標（可選）
-            <input
-              value={keyword}
-              onChange={(event) => setKeyword(event.target.value)}
-              placeholder="例：台北101、青埔特區、某某社區"
-            />
+            <ClearableSelect value={district} onChange={setDistrict} onClear={() => setDistrict("")} options={districts} ariaLabel="區域" />
           </label>
           <label>
             路名
-            <input value={road} onChange={(event) => setRoad(event.target.value)} placeholder="例：信義路" />
+            <ClearableInput value={road} onChange={setRoad} onClear={clearRoadParts} placeholder="例：信義路" ariaLabel="路名" />
           </label>
           <label>
             段
-            <input value={section} onChange={(event) => setSection(event.target.value)} placeholder="例：五 / 5" />
+            <ClearableInput value={section} onChange={setSection} placeholder="例：五 / 5" ariaLabel="段" />
           </label>
           <label>
             巷
-            <input value={lane} onChange={(event) => setLane(event.target.value)} placeholder="可空白" />
+            <ClearableInput value={lane} onChange={setLane} placeholder="可空白" ariaLabel="巷" />
           </label>
           <label>
             弄
-            <input value={alley} onChange={(event) => setAlley(event.target.value)} placeholder="可空白" />
+            <ClearableInput value={alley} onChange={setAlley} placeholder="可空白" ariaLabel="弄" />
           </label>
           <label>
             號
-            <input value={number} onChange={(event) => setNumber(event.target.value)} placeholder="例：7" />
+            <ClearableInput value={number} onChange={setNumber} placeholder="例：7" ariaLabel="號" />
           </label>
         </div>
       ) : (
         <div className="structured-grid address-parts">
           <label>
             縣市 *
-            <select value={city} onChange={(event) => setCity(event.target.value)}>
-              {taiwanCities.map((item) => (
-                <option key={item}>{item}</option>
-              ))}
-            </select>
+            <ClearableSelect value={city} onChange={setCity} onClear={clearCity} options={taiwanCities} ariaLabel="縣市" />
           </label>
           <label>
             區域 *
-            <select value={district} onChange={(event) => setDistrict(event.target.value)}>
-              {districts.map((item) => (
-                <option key={item}>{item}</option>
-              ))}
-            </select>
+            <ClearableSelect value={district} onChange={setDistrict} onClear={() => setDistrict("")} options={districts} ariaLabel="區域" />
           </label>
           <label className="wide-field">
-            路段 / 社區 / 生活圈（可選）
-            <input
+            社區名稱 / 建案名稱 / 地標
+            <ClearableInput
               value={keyword}
-              onChange={(event) => setKeyword(event.target.value)}
-              placeholder="例：藝文特區、中正路、某某社區"
+              onChange={setKeyword}
+              placeholder="例：國都花園社區、台北101、青埔特區"
+              ariaLabel="社區名稱、建案名稱或地標"
             />
           </label>
           <label>
-            成交範圍
+            比對範圍
             <select>
-              <option>指定行政區</option>
-              <option>行政區 + 相鄰生活圈</option>
-              <option>僅同路段</option>
+              <option>同社區優先</option>
+              <option>同社區 + 同路段</option>
+              <option>同生活圈輔助</option>
             </select>
           </label>
           <label>
@@ -337,6 +436,26 @@ export const PropertyEstimateForm = ({
           </label>
         </div>
       )}
+
+      <div className="address-compose-preview">
+        <div>
+          <span>目前組合</span>
+          <strong>{addressPreview || "尚未輸入地址"}</strong>
+        </div>
+        <div className="address-chip-row" aria-label="可清除的地址欄位">
+          {clearableAddressParts.length ? (
+            clearableAddressParts.map((item) => (
+              <button key={item.label} type="button" onClick={item.clear}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                <X size={13} />
+              </button>
+            ))
+          ) : (
+            <small>可直接貼上完整地址，也可分欄輸入後逐欄清除。</small>
+          )}
+        </div>
+      </div>
 
       {advancedOpen && (
         <div className="advanced-filter-panel">
@@ -373,12 +492,13 @@ export const PropertyEstimateForm = ({
           </label>
           <label>
             樓層
-            <input
+            <ClearableInput
               type="number"
               inputMode="numeric"
               value={floorText}
-              onChange={(event) => setFloorText(event.target.value)}
+              onChange={setFloorText}
               placeholder="例：10"
+              ariaLabel="樓層"
             />
           </label>
           <label>

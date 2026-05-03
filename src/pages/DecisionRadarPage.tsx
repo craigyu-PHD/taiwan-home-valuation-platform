@@ -1,6 +1,7 @@
 import {
   AlertTriangle,
   Building2,
+  Calculator,
   FileText,
   Gauge,
   Handshake,
@@ -27,8 +28,9 @@ import type { LandUseInfo } from "../services/landUse";
 import { getMajorDevelopmentSignal, type LocationIntel, type NearbyFeature } from "../services/locationIntel";
 import { estimateRental } from "../services/rental";
 import { estimateProperty } from "../services/valuation";
-import type { PropertyInput, ValuationResult } from "../types";
 import { clamp, formatDistance, formatRentPerPing, formatTwd, formatUnitWan, formatWan } from "../utils/format";
+import { buildTargetLabel, isPreciseTargetLocation } from "../utils/locationPrecision";
+import type { PropertyInput, ValuationResult } from "../types";
 
 type Effect = "利多" | "利少" | "中性";
 type SignalIcon = "land" | "school" | "transit" | "retail" | "green" | "market" | "risk" | "build";
@@ -219,8 +221,11 @@ export const DecisionRadarPage = () => {
   const { propertyInput, selectedLocation, valuation, rentalValuation, transactionMode } = useEstimate();
   const [openIntelGroup, setOpenIntelGroup] = useState<NearbyFeature["category"] | undefined>("transit");
   const [openSideIntelKey, setOpenSideIntelKey] = useState<string | undefined>("buyer-transit");
-  const hasTarget = Boolean(propertyInput.address && propertyInput.lat && propertyInput.lng);
-  const hasPreciseTarget = hasTarget && (propertyInput.locationConfidence ?? 0) >= 0.72;
+  const [loanRatioPct, setLoanRatioPct] = useState(70);
+  const [loanAnnualRatePct, setLoanAnnualRatePct] = useState(2.2);
+  const hasTarget = Boolean(propertyInput.address && typeof propertyInput.lat === "number" && typeof propertyInput.lng === "number");
+  const hasQueryableTarget = hasTarget && typeof propertyInput.lat === "number" && typeof propertyInput.lng === "number";
+  const hasPreciseTarget = hasQueryableTarget && isPreciseTargetLocation(propertyInput, selectedLocation);
   const result = valuation ?? estimateProperty(propertyInput);
   const rentResult = rentalValuation ?? estimateRental(propertyInput);
   const { info: landUse, status: landUseStatus } = useLandUseInfo(
@@ -233,7 +238,7 @@ export const DecisionRadarPage = () => {
     300,
   );
   const unitMedian = result.unitMedianWan ?? 0;
-  const area = propertyInput.areaPing ?? 30;
+  const area = propertyInput.areaPing ?? (unitMedian ? (result.totalMedianWan ?? 0) / unitMedian : 30);
   const confidence = result.confidenceScore;
   const spread =
     result.unitLowWan && result.unitHighWan && result.unitMedianWan
@@ -269,7 +274,7 @@ export const DecisionRadarPage = () => {
   const overlapLow = Math.max(conservativeOffer, Math.min(buyerMindPrice, ceilingOffer * 0.96));
   const overlapHigh = Math.min(ceilingOffer, Math.max(overlapLow * 1.025, Math.min(sellerMindPrice, ceilingOffer)));
   const negotiationGapPct = fairOffer ? ((sellerMindPrice - buyerMindPrice) / fairOffer) * 100 : 0;
-  const targetLabel = propertyInput.communityName || propertyInput.address || selectedLocation?.label || "尚未指定標的";
+  const targetLabel = buildTargetLabel(propertyInput, selectedLocation);
   const buyerUps = signals.filter((item) => item.buyerEffect === "利多").length;
   const buyerDowns = signals.filter((item) => item.buyerEffect === "利少").length;
   const sellerUps = signals.filter((item) => item.sellerEffect === "利多").length;
@@ -294,6 +299,20 @@ export const DecisionRadarPage = () => {
   const conditionSummary = propertyInput.specialFactors.length
     ? `標的帶有 ${propertyInput.specialFactors.join("、")} 等特殊狀況，必須折入風險價差。`
     : `目前屋況為「${propertyInput.condition || "未提供"}」，仍需用漏水、管線、管理費與修繕紀錄查證。`;
+  const loanRatio = clamp(loanRatioPct, 0, 95);
+  const loanBaseWan = fairOffer || result.totalMedianWan || 0;
+  const loanAmountWan = loanBaseWan * (loanRatio / 100);
+  const downPaymentWan = Math.max(loanBaseWan - loanAmountWan, 0);
+  const monthlyRate = Math.max(loanAnnualRatePct, 0) / 100 / 12;
+  const loanMonths = 360;
+  const loanPrincipalTwd = loanAmountWan * 10000;
+  const monthlyPayment =
+    loanPrincipalTwd > 0
+      ? monthlyRate > 0
+        ? (loanPrincipalTwd * monthlyRate * (1 + monthlyRate) ** loanMonths) /
+          ((1 + monthlyRate) ** loanMonths - 1)
+        : loanPrincipalTwd / loanMonths
+      : undefined;
 
   const renderSignalList = (side: "buyer" | "seller") =>
     signals.map((item) => {
@@ -316,16 +335,22 @@ export const DecisionRadarPage = () => {
 
   const renderIntelPanel = () => (
     <>
-      {!hasPreciseTarget && (
+      {!hasQueryableTarget && (
         <div className="intel-radius-note warning">
-          <strong>需要可辨識定位</strong>
+          <strong>需要完成定位</strong>
           <span>請輸入地址、社區、地標，或到地圖估價拖曳定位點，系統才會查詢 300 公尺節點。</span>
+        </div>
+      )}
+      {hasQueryableTarget && !hasPreciseTarget && (
+        <div className="intel-radius-note warning">
+          <strong>需要精準座標</strong>
+          <span>目前座標可能只是行政區或模糊搜尋中心，暫不列出周邊設施，避免把其他位置的節點誤判為本標的。</span>
         </div>
       )}
       {hasPreciseTarget && (
         <>
       <div className="intel-radius-note">
-        <strong>300 公尺即時統計</strong>
+        <strong>方圓 300 公尺即時統計</strong>
         <span>點擊項目可展開明細；資料來自公開地圖節點，正式判斷仍需現場確認。</span>
       </div>
       <div className="intel-pill-grid">
@@ -378,14 +403,14 @@ export const DecisionRadarPage = () => {
     <div className="side-intel-accordion">
       <div className="side-intel-heading">
         <strong>{title}</strong>
-        <span>{hasPreciseTarget ? "方圓 300 公尺公開節點，單次只展開一類。" : "完成地址、社區或地標定位後才會列出 300 公尺公開節點。"}</span>
+        <span>{hasPreciseTarget ? "方圓 300 公尺公開節點，單次只展開一類。" : "完成精準地址、社區或地圖選點後才會列出 300 公尺公開節點。"}</span>
       </div>
       {!hasPreciseTarget && (
         <article className="side-intel-group open">
           <ul>
             <li>
-              <span>目前定位精度不足，暫不列入周邊節點</span>
-              <small>請用地圖校正</small>
+              <span>{hasQueryableTarget ? "目前是模糊座標，暫不顯示可能錯位的周邊節點" : "完成地址或社區定位後會列出周邊節點"}</span>
+              <small>建議用候選地址或地圖校正</small>
             </li>
           </ul>
         </article>
@@ -511,7 +536,7 @@ export const DecisionRadarPage = () => {
             <LandUseBadge
               lat={propertyInput.lat}
               lng={propertyInput.lng}
-              locationConfidence={propertyInput.locationConfidence}
+              locationConfidence={hasPreciseTarget ? propertyInput.locationConfidence : 0.58}
               compact
             />
             {renderIntelPanel()}
@@ -634,6 +659,55 @@ export const DecisionRadarPage = () => {
                 <strong>{result.comparableCount}</strong>
               </span>
             </div>
+            <div className="buyer-loan-preset">
+              <div className="buyer-loan-title">
+                <Calculator size={18} />
+                <strong>買方貸款預設</strong>
+                <span>30 年期本息平均攤還</span>
+              </div>
+              <div className="loan-preset-controls">
+                <label>
+                  貸款成數
+                  <input
+                    type="number"
+                    min="0"
+                    max="95"
+                    value={loanRatioPct}
+                    onChange={(event) => setLoanRatioPct(Number(event.target.value))}
+                  />
+                  <small>%</small>
+                </label>
+                <label>
+                  年利率
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={loanAnnualRatePct}
+                    onChange={(event) => setLoanAnnualRatePct(Number(event.target.value))}
+                  />
+                  <small>%</small>
+                </label>
+              </div>
+              <div className="loan-preset-grid">
+                <span>
+                  總價基準
+                  <strong>{formatWan(loanBaseWan)}</strong>
+                </span>
+                <span>
+                  貸款金額
+                  <strong>{formatWan(loanAmountWan)}</strong>
+                </span>
+                <span>
+                  自備款
+                  <strong>{formatWan(downPaymentWan)}</strong>
+                </span>
+                <span>
+                  月付試算
+                  <strong>{formatTwd(monthlyPayment)}</strong>
+                </span>
+              </div>
+            </div>
           </div>
         </article>
 
@@ -645,7 +719,7 @@ export const DecisionRadarPage = () => {
           <LandUseBadge
             lat={propertyInput.lat}
             lng={propertyInput.lng}
-            locationConfidence={propertyInput.locationConfidence}
+            locationConfidence={hasPreciseTarget ? propertyInput.locationConfidence : 0.58}
             compact
           />
           {renderIntelPanel()}
