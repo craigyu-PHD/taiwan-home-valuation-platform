@@ -1,8 +1,14 @@
+import type { TransactionMode } from "../types";
+
 export type RegionalContentKind = "news" | "policy";
+export type PolicyScopeType = "central" | "local";
+export type PolicyAudience = TransactionMode | "both";
 
 export interface RegionalContentItem {
   id: string;
   kind: RegionalContentKind;
+  audience?: PolicyAudience;
+  policyScope?: PolicyScopeType;
   title: string;
   date: string;
   source: string;
@@ -154,13 +160,48 @@ export const fallbackRegionalNews = (city?: string, district?: string): Regional
   ];
 };
 
-export const getPolicyItems = (city?: string, district?: string): RegionalContentItem[] => {
+const localHousingResources: Record<string, { source: string; url: string }> = {
+  臺北市: { source: "臺北市政府都市發展局", url: "https://www.udd.gov.taipei/" },
+  台北市: { source: "臺北市政府都市發展局", url: "https://www.udd.gov.taipei/" },
+  新北市: { source: "新北市政府城鄉發展局", url: "https://www.planning.ntpc.gov.tw/" },
+  桃園市: { source: "桃園市政府住宅發展處", url: "https://housing.tycg.gov.tw/portal/" },
+  臺中市: { source: "臺中市政府住宅發展工程處", url: "https://thd.taichung.gov.tw/" },
+  台中市: { source: "臺中市政府住宅發展工程處", url: "https://thd.taichung.gov.tw/" },
+  臺南市: { source: "臺南市政府都市發展局", url: "https://udweb.tainan.gov.tw/" },
+  台南市: { source: "臺南市政府都市發展局", url: "https://udweb.tainan.gov.tw/" },
+  高雄市: { source: "高雄市政府都市發展局", url: "https://urban-web.kcg.gov.tw/" },
+  基隆市: { source: "基隆市政府都市發展處", url: "https://urban.klcg.gov.tw/" },
+  新竹市: { source: "新竹市政府都市發展處", url: "https://dep-urban.hccg.gov.tw/" },
+  新竹縣: { source: "新竹縣政府產業發展處", url: "https://id.hsinchu.gov.tw/" },
+  苗栗縣: { source: "苗栗縣政府工商發展處", url: "https://www.miaoli.gov.tw/" },
+  彰化縣: { source: "彰化縣政府建設處", url: "https://economic.chcg.gov.tw/" },
+  南投縣: { source: "南投縣政府建設處", url: "https://www.nantou.gov.tw/" },
+  雲林縣: { source: "雲林縣政府建設處", url: "https://www.yunlin.gov.tw/" },
+  嘉義市: { source: "嘉義市政府都市發展處", url: "https://urban.chiayi.gov.tw/" },
+  嘉義縣: { source: "嘉義縣政府經濟發展處", url: "https://economic.cyhg.gov.tw/" },
+  屏東縣: { source: "屏東縣政府城鄉發展處", url: "https://www.pthg.gov.tw/plan/Default.aspx" },
+  宜蘭縣: { source: "宜蘭縣政府建設處", url: "https://www.e-land.gov.tw/" },
+  花蓮縣: { source: "花蓮縣政府建設處", url: "https://pw.hl.gov.tw/" },
+  臺東縣: { source: "臺東縣政府建設處", url: "https://www.taitung.gov.tw/" },
+  台東縣: { source: "臺東縣政府建設處", url: "https://www.taitung.gov.tw/" },
+  澎湖縣: { source: "澎湖縣政府建設處", url: "https://www.penghu.gov.tw/" },
+  金門縣: { source: "金門縣政府建設處", url: "https://www.kinmen.gov.tw/" },
+  連江縣: { source: "連江縣政府工務處", url: "https://www.matsu.gov.tw/" },
+};
+
+const getLocalHousingResource = (city?: string) =>
+  city ? localHousingResources[city] ?? localHousingResources[city.replace("臺", "台")] : undefined;
+
+export const getPolicyItems = (city?: string, district?: string, mode: TransactionMode = "sale"): RegionalContentItem[] => {
   const scope = buildRegionalScope(city, district);
   const cityLabel = city || "全國";
+  const localResource = getLocalHousingResource(city);
   const national: RegionalContentItem[] = [
     {
       id: "policy-moi-real-price",
       kind: "policy",
+      audience: "both",
+      policyScope: "central",
       title: "內政部實價登錄公開資料：估價與行情判讀的主要基礎",
       date: "持續更新",
       source: "內政部不動產交易實價查詢服務網",
@@ -178,6 +219,8 @@ export const getPolicyItems = (city?: string, district?: string): RegionalConten
     {
       id: "policy-land-tax-law",
       kind: "policy",
+      audience: "sale",
+      policyScope: "central",
       title: "土地稅法：土地增值稅、自用住宅優惠與重購退稅依據",
       date: "法規持續更新",
       source: "全國法規資料庫",
@@ -195,6 +238,8 @@ export const getPolicyItems = (city?: string, district?: string): RegionalConten
     {
       id: "policy-housing-service",
       kind: "policy",
+      audience: "both",
+      policyScope: "central",
       title: "住宅政策與租金補貼、社會住宅、包租代管資訊",
       date: "持續更新",
       source: "內政部國土管理署",
@@ -209,12 +254,57 @@ export const getPolicyItems = (city?: string, district?: string): RegionalConten
       ],
       tags: ["全國", "住宅政策", "租金補貼"],
     },
+    {
+      id: "policy-rent-subsidy-national",
+      kind: "policy",
+      audience: "rent",
+      policyScope: "central",
+      title: "中央租屋政策：租金補貼、社會住宅與包租代管",
+      date: "持續更新",
+      source: "內政部國土管理署住宅補貼專區",
+      url: "https://pip.moi.gov.tw/V3/B/SCRB0101.aspx",
+      scope: "全國",
+      summary:
+        "中央租屋政策會影響租客可負擔能力、房東出租誘因與社宅供給。租屋模式會把這些政策列為全國層級的租金判讀脈絡。",
+      content: [
+        "中央租屋政策包含租金補貼、社會住宅、包租代管與居住協助。這些政策不會直接等於某一戶的租金，但會影響租客可負擔能力與房東出租策略。",
+        "租客應確認補貼資格、申請期間、戶籍或居住條件、租約登載與所得限制；房東則應確認是否適用包租代管、稅賦優惠或租賃管理規範。",
+        "本平台在租屋模式下會把中央租屋政策放在中央政策欄，並與地方住宅服務、實際租金行情、生活機能與屋況一起判讀。",
+      ],
+      tags: ["全國", "租金補貼", "社會住宅", "包租代管"],
+    },
   ];
+
+  const localGeneric: RegionalContentItem[] = city
+    ? [
+        {
+          id: `policy-${cityLabel}-local-housing-${mode}`,
+          kind: "policy",
+          audience: "both",
+          policyScope: "local",
+          title: `${cityLabel}地方住宅政策：社宅、租金補貼與都市發展資訊`,
+          date: "持續更新",
+          source: localResource?.source ?? `${cityLabel}政府住宅與都市發展主管機關`,
+          url: localResource?.url ?? "https://www.gov.tw/",
+          scope: cityLabel,
+          summary:
+            `${cityLabel}地方住宅與都市發展資訊會影響社宅供給、租屋補貼受理、都市更新與生活圈供給。`,
+          content: [
+            `${cityLabel}地方住宅政策通常包含社會住宅、租金補貼受理、包租代管、都市更新、重劃與地方住宅服務。這些政策需要回到地方政府最新公告確認。`,
+            "買賣模式下，地方政策可作為供給、建設與轉手性的輔助訊號；租屋模式下，則應優先檢查社宅、租補、包租代管與租賃服務是否改變同區租金競爭。",
+            `本平台會把 ${scope} 的政策先分為地方與中央，再依買賣或租屋模式顯示不同重點。`,
+          ],
+          tags: [cityLabel, mode === "rent" ? "租屋政策" : "地方政策", "住宅服務"],
+        },
+      ]
+    : [];
 
   const taoyuan: RegionalContentItem[] = [
     {
       id: "policy-taoyuan-housing",
       kind: "policy",
+      audience: "both",
+      policyScope: "local",
       title: "桃園市住宅服務資訊網：社會住宅、包租代管與租金補貼資訊",
       date: "持續更新",
       source: "桃園市政府住宅發展處",
@@ -232,6 +322,8 @@ export const getPolicyItems = (city?: string, district?: string): RegionalConten
     {
       id: "policy-taoyuan-urban-renewal",
       kind: "policy",
+      audience: "sale",
+      policyScope: "local",
       title: "桃園市市有不動產參加都市更新處理原則",
       date: "官方資料",
       source: "桃園市政府 / 都市更新法規資料",
@@ -249,6 +341,8 @@ export const getPolicyItems = (city?: string, district?: string): RegionalConten
     {
       id: "policy-taoyuan-public-property",
       kind: "policy",
+      audience: "sale",
+      policyScope: "local",
       title: "桃園市住宅及都市更新中心公有不動產管理使用收益辦法",
       date: "官方資料",
       source: "桃園市政府 / 都市更新法規資料",
@@ -265,7 +359,8 @@ export const getPolicyItems = (city?: string, district?: string): RegionalConten
     },
   ];
 
-  return cityLabel.includes("桃園") || scope.includes("桃園") ? [...taoyuan, ...national] : national;
+  const base = cityLabel.includes("桃園") || scope.includes("桃園") ? [...taoyuan, ...localGeneric, ...national] : [...localGeneric, ...national];
+  return base.filter((item) => item.audience === "both" || item.audience === mode);
 };
 
 export const getFallbackRegionalContent = (city?: string, district?: string) => ({
