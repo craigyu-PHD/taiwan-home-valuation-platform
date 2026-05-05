@@ -12,12 +12,15 @@ export interface LocationIntel {
   medicalCount: number;
   features: NearbyFeature[];
   sourceUrl: string;
+  updatedAt?: string;
 }
 
-const CACHE_KEY = "taiwan-valuation-location-intel-v15";
+const CACHE_KEY = "taiwan-valuation-location-intel-v16";
+const CACHE_TTL_MS = 15 * 60 * 1000;
 const GUODU_CENTER = { lat: 25.02247, lng: 121.29303 };
 
-type CacheMap = Record<string, LocationIntel>;
+type CacheEntry = LocationIntel & { cachedAt?: number };
+type CacheMap = Record<string, CacheEntry>;
 
 let memoryCache: CacheMap | undefined;
 
@@ -43,6 +46,13 @@ const saveCache = (cache: CacheMap) => {
   }
 };
 
+const getFreshCacheEntry = (lat: number, lng: number, radiusMeters: number) => {
+  const entry = loadCache()[getCacheKey(lat, lng, radiusMeters)];
+  if (!entry) return undefined;
+  if (!entry.cachedAt || Date.now() - entry.cachedAt > CACHE_TTL_MS) return undefined;
+  return entry;
+};
+
 const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
 
 const distanceMeters = (latA: number, lngA: number, latB: number, lngB: number) => {
@@ -56,18 +66,20 @@ const distanceMeters = (latA: number, lngA: number, latB: number, lngB: number) 
 };
 
 const getOverpassQuery = (lat: number, lng: number, radiusMeters: number) => `
-[out:json][timeout:12];
+[out:json][timeout:18];
 (
   nwr(around:${radiusMeters},${lat},${lng})["amenity"~"school|kindergarten|college|university|library|community_centre"];
   nwr(around:${radiusMeters},${lat},${lng})["public_transport"~"station|platform|stop_position"];
   nwr(around:${radiusMeters},${lat},${lng})["railway"~"station|halt|subway_entrance|tram_stop|stop"];
+  nwr(around:${radiusMeters},${lat},${lng})["station"~"subway|train|light_rail|monorail"];
   nwr(around:${radiusMeters},${lat},${lng})["highway"="bus_stop"];
   nwr(around:${radiusMeters},${lat},${lng})["leisure"~"park|garden|playground|sports_centre"];
-  nwr(around:${radiusMeters},${lat},${lng})["shop"];
+  nwr(around:${radiusMeters},${lat},${lng})["landuse"~"grass|recreation_ground|village_green"];
+  nwr(around:${radiusMeters},${lat},${lng})["shop"~"supermarket|convenience|department_store|mall|bakery|greengrocer|butcher|chemist|hardware|clothes|books"];
   nwr(around:${radiusMeters},${lat},${lng})["amenity"~"marketplace|restaurant|cafe|fast_food|bank|atm|post_office|pharmacy|hospital|clinic|doctors|dentist"];
   nwr(around:${radiusMeters},${lat},${lng})["tourism"~"museum|attraction"];
 );
-out center tags 160;
+out center tags 260;
 `;
 
 const localGuoduFeatures: NearbyFeature[] = [
@@ -134,19 +146,64 @@ const getDisplayName = (tags: Record<string, string>, fallback: string) => {
   return rawName.length > 24 ? `${rawName.slice(0, 24)}...` : rawName;
 };
 
-const fetchWithTimeout = async (url: string, timeoutMs = 12000) => {
+const fetchWithTimeout = async (url: string, init?: RequestInit, timeoutMs = 15000) => {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  const headers = init?.headers as Record<string, string> | undefined;
   try {
-    return await fetch(url, { headers: { accept: "application/json" }, signal: controller.signal });
+    return await fetch(url, {
+      ...init,
+      headers: { accept: "application/json", ...(headers ?? {}) },
+      signal: controller.signal,
+    });
   } finally {
     window.clearTimeout(timer);
   }
 };
 
+const fetchOverpassPayload = async (query: string) => {
+  const endpoints = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.openstreetmap.ru/api/interpreter",
+    "https://overpass.osm.ch/api/interpreter",
+  ];
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetchWithTimeout(endpoint, {
+        method: "POST",
+        body: new URLSearchParams({ data: query }),
+        headers: { "content-type": "application/x-www-form-urlencoded;charset=UTF-8" },
+      });
+      const contentType = response.headers.get("content-type") ?? "";
+      if (response.ok && contentType.includes("application/json")) {
+        return { response, sourceUrl: endpoint };
+      }
+    } catch {
+      // Try the next public Overpass mirror.
+    }
+  }
+
+  for (const endpoint of endpoints) {
+    try {
+      const url = `${endpoint}?data=${encodeURIComponent(query)}`;
+      const response = await fetchWithTimeout(url);
+      const contentType = response.headers.get("content-type") ?? "";
+      if (response.ok && contentType.includes("application/json")) {
+        return { response, sourceUrl: endpoint };
+      }
+    } catch {
+      // Try the next public Overpass mirror.
+    }
+  }
+
+  throw new Error("Overpass query failed");
+};
+
 export const getCachedLocationIntel = (lat?: number, lng?: number, radiusMeters = 1200) => {
   if (typeof lat !== "number" || typeof lng !== "number") return undefined;
-  return loadCache()[getCacheKey(lat, lng, radiusMeters)];
+  return getFreshCacheEntry(lat, lng, radiusMeters);
 };
 
 export const getMajorDevelopmentSignal = (city?: string, district?: string, road?: string) => {
@@ -174,32 +231,12 @@ export const lookupLocationIntel = async (lat?: number, lng?: number, radiusMete
   if (typeof lat !== "number" || typeof lng !== "number") return undefined;
   const cache = loadCache();
   const cacheKey = getCacheKey(lat, lng, radiusMeters);
-  if (cache[cacheKey]) return cache[cacheKey];
+  const cached = getFreshCacheEntry(lat, lng, radiusMeters);
+  if (cached) return cached;
 
   const query = getOverpassQuery(lat, lng, radiusMeters);
-  const endpoints = [
-    "https://overpass.kumi.systems/api/interpreter",
-    "https://overpass-api.de/api/interpreter",
-    "https://overpass.osm.ch/api/interpreter",
-  ];
-  let sourceUrl = endpoints[0];
   try {
-    let response: Response | undefined;
-    for (const endpoint of endpoints) {
-      const url = `${endpoint}?data=${encodeURIComponent(query)}`;
-      try {
-        const nextResponse = await fetchWithTimeout(url);
-        const contentType = nextResponse.headers.get("content-type") ?? "";
-        if (nextResponse.ok && contentType.includes("application/json")) {
-          response = nextResponse;
-          sourceUrl = url;
-          break;
-        }
-      } catch {
-        // Try the next public Overpass mirror.
-      }
-    }
-    if (!response) throw new Error("Overpass query failed");
+    const { response, sourceUrl } = await fetchOverpassPayload(query);
     const payload = (await response.json()) as {
       elements?: Array<{ lat?: number; lon?: number; center?: { lat?: number; lon?: number }; tags?: Record<string, string> }>;
     };
@@ -235,10 +272,13 @@ export const lookupLocationIntel = async (lat?: number, lng?: number, radiusMete
       medicalCount: uniqueFeatures.filter((item) => item.category === "medical").length,
       features: uniqueFeatures
         .sort((a, b) => (a.distanceMeters ?? Number.MAX_SAFE_INTEGER) - (b.distanceMeters ?? Number.MAX_SAFE_INTEGER)),
-      sourceUrl: features.length === 0 && isNearGuodu(lat, lng) ? `${sourceUrl} + 本地公開生活圈備援清單` : sourceUrl,
+      sourceUrl: features.length === 0 && isNearGuodu(lat, lng)
+        ? `${sourceUrl} + 桃園本地公開生活圈備援清單`
+        : `${sourceUrl} / OpenStreetMap 即時節點`,
+      updatedAt: new Date().toISOString(),
     };
     if (uniqueFeatures.length) {
-      cache[cacheKey] = intel;
+      cache[cacheKey] = { ...intel, cachedAt: Date.now() };
       saveCache(cache);
     }
     return intel;
@@ -252,11 +292,12 @@ export const lookupLocationIntel = async (lat?: number, lng?: number, radiusMete
       medicalCount: fallbackFeatures.filter((item) => item.category === "medical").length,
       features: fallbackFeatures.sort((a, b) => (a.distanceMeters ?? 9999) - (b.distanceMeters ?? 9999)),
       sourceUrl: fallbackFeatures.length
-        ? "本地公開生活圈備援清單；正式版可接 Overpass/OSM 或政府 POI API"
+        ? "桃園本地公開生活圈備援清單；正式版仍優先查詢 Overpass / OpenStreetMap 即時節點"
         : "公開地圖節點暫時無法取得；不以其他縣市資料替代",
+      updatedAt: new Date().toISOString(),
     };
     if (fallbackFeatures.length) {
-      cache[cacheKey] = intel;
+      cache[cacheKey] = { ...intel, cachedAt: Date.now() };
       saveCache(cache);
     }
     return intel;
