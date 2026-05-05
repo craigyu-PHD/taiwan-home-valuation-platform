@@ -16,12 +16,12 @@ import { ModeSwitch } from "./ModeSwitch";
 import type { TransactionMode } from "../types";
 
 const navItems = [
-  { to: "/", label: "地址估價", icon: Home, modeAware: true },
-  { to: "/estimate/map", label: "地圖估價", icon: Map, modeAware: true },
-  { to: "/market", label: "區域行情", icon: BarChart3, modeAware: true },
-  { to: "/decision-radar", label: "決策雷達", icon: Gauge, modeAware: true },
-  { to: "/land-value-tax", label: "稅費試算", icon: ReceiptText },
-  { to: "/news-policy", label: "新聞政策", icon: Newspaper },
+  { to: "/", label: "地址估價", icon: Home, modeAware: true, tone: "estimate" },
+  { to: "/estimate/map", label: "地圖估價", icon: Map, modeAware: true, tone: "map" },
+  { to: "/market", label: "區域行情", icon: BarChart3, modeAware: true, tone: "market" },
+  { to: "/decision-radar", label: "決策雷達", icon: Gauge, modeAware: true, tone: "radar" },
+  { to: "/land-value-tax", label: "稅費試算", icon: ReceiptText, tone: "tax" },
+  { to: "/news-policy", label: "新聞政策", icon: Newspaper, modeAware: true, tone: "news" },
 ];
 
 export const AppShell = ({ children }: PropsWithChildren) => {
@@ -53,7 +53,7 @@ export const AppShell = ({ children }: PropsWithChildren) => {
               <div className="nav-mode-wrap" key={item.to}>
                 <NavLink
                   to={item.to}
-                  className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+                  className={({ isActive }) => `nav-link nav-tone-${item.tone} ${isActive ? "active" : ""}`}
                 >
                   <Icon size={17} />
                   {item.label}
