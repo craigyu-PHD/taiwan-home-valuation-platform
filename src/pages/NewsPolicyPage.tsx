@@ -1,5 +1,6 @@
 import { FileText, Globe2, Loader2, Newspaper, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { ModeSwitch } from "../components/ModeSwitch";
 import { useEstimate } from "../context/EstimateContext";
 import {
   buildRegionalScope,
@@ -87,7 +88,7 @@ const ReaderModal = ({ item, onClose }: { item: RegionalContentItem; onClose: ()
 );
 
 export const NewsPolicyPage = () => {
-  const { propertyInput, selectedLocation } = useEstimate();
+  const { propertyInput, selectedLocation, transactionMode } = useEstimate();
   const [news, setNews] = useState<RegionalContentItem[]>(() =>
     fallbackRegionalNews(propertyInput.city, propertyInput.district),
   );
@@ -97,9 +98,12 @@ export const NewsPolicyPage = () => {
   const targetLabel = buildTargetLabel(propertyInput, selectedLocation, regionLabel);
   const showScopeNote = targetLabel !== regionLabel;
   const policies = useMemo(
-    () => sortByDateDesc(getPolicyItems(propertyInput.city, propertyInput.district)),
-    [propertyInput.city, propertyInput.district],
+    () => sortByDateDesc(getPolicyItems(propertyInput.city, propertyInput.district, transactionMode)),
+    [propertyInput.city, propertyInput.district, transactionMode],
   );
+  const centralPolicies = policies.filter((item) => item.policyScope !== "local");
+  const localPolicies = policies.filter((item) => item.policyScope === "local");
+  const modeLabel = transactionMode === "sale" ? "買賣房屋" : "租屋";
 
   useEffect(() => {
     let cancelled = false;
@@ -134,8 +138,9 @@ export const NewsPolicyPage = () => {
       <section className="section-heading regional-news-hero">
         <div className="regional-news-hero-copy">
           <span className="eyebrow">區域新聞 / 政策雷達</span>
-          <h1>房產新聞與政策</h1>
-          <p>依目前標的所在地區、縣市與全國範圍整理房地產新聞與政策，最新資訊排在最上方。</p>
+          <h1>{modeLabel}新聞與政策</h1>
+          <p>依目前標的所在地區、縣市與全國範圍整理{modeLabel}新聞與政策，並把政策分成中央與地方來源。</p>
+          <ModeSwitch />
         </div>
         <div className="regional-subject-card">
           <Globe2 size={22} />
@@ -166,12 +171,29 @@ export const NewsPolicyPage = () => {
           <div className="regional-column-head">
             <FileText size={22} />
             <div>
-              <span>政策資料</span>
-              <h2>{regionLabel}不動產政策</h2>
+              <span>中央政策</span>
+              <h2>{modeLabel}中央政策</h2>
             </div>
           </div>
           <div className="regional-card-list">
-            {policies.map((item) => <ContentCard key={item.id} item={item} onOpen={setActiveItem} />)}
+            {centralPolicies.map((item) => <ContentCard key={item.id} item={item} onOpen={setActiveItem} />)}
+          </div>
+        </article>
+
+        <article className="regional-content-column policy local-policy-column">
+          <div className="regional-column-head">
+            <FileText size={22} />
+            <div>
+              <span>地方政策</span>
+              <h2>{regionLabel}{modeLabel}地方政策</h2>
+            </div>
+          </div>
+          <div className="regional-card-list">
+            {localPolicies.length ? (
+              localPolicies.map((item) => <ContentCard key={item.id} item={item} onOpen={setActiveItem} />)
+            ) : (
+              <div className="empty-state compact-empty-state">尚未指定縣市；選定標的後會顯示地方住宅與租屋政策來源。</div>
+            )}
           </div>
         </article>
       </section>
