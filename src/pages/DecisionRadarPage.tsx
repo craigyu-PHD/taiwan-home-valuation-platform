@@ -351,7 +351,8 @@ export const DecisionRadarPage = () => {
         <>
       <div className="intel-radius-note">
         <strong>方圓 300 公尺即時統計</strong>
-        <span>點擊項目可展開明細；資料來自公開地圖節點，正式判斷仍需現場確認。</span>
+        <span>點擊項目可展開明細；資料來自 OpenStreetMap / Overpass 公開節點，正式判斷仍需現場確認。</span>
+        {intel?.sourceUrl && <small>來源：{intel.sourceUrl}{intel.updatedAt ? ` · 更新 ${intel.updatedAt.slice(0, 10)} ${intel.updatedAt.slice(11, 16)}` : ""}</small>}
       </div>
       <div className="intel-pill-grid">
         {featureGroups.map((group) => {
