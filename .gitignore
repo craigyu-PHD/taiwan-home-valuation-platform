@@ -1,6 +1,14 @@
 node_modules/
 dist/
 .npm-cache/
+.codex/
+.claude/
+.vercel/
+.netlify/
+.env
+.env.*
+!.env.example
+coverage/
 *.tsbuildinfo
 vite.config.js
 vite.config.d.ts
